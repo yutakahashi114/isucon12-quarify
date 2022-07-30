@@ -2067,7 +2067,7 @@ func Proxy(c echo.Context, v *Viewer) bool {
 
 	// 192.168.0.11に来て偶数の場合、プロキシ
 	if v.tenantID%2 == 0 {
-		host := "192.168.0.13"
+		host := "192.168.0.13:3000"
 
 		rp := &httputil.ReverseProxy{
 			Director: func(req *http.Request) {
