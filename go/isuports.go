@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/gofrs/flock"
+	"github.com/isucon/isucon12-qualify/webapp/go/mutexmap"
 	"github.com/isucon/isucon12-qualify/webapp/go/trace"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
@@ -439,15 +439,29 @@ func lockFilePath(id int64) string {
 	return filepath.Join(tenantDBDir, fmt.Sprintf("%d.lock", id))
 }
 
-// 排他ロックする
-func flockByTenantID(tenantID int64) (io.Closer, error) {
-	p := lockFilePath(tenantID)
+// // 排他ロックする
+// func flockByTenantID(tenantID int64) (io.Closer, error) {
+// 	p := lockFilePath(tenantID)
 
-	fl := flock.New(p)
-	if err := fl.Lock(); err != nil {
-		return nil, fmt.Errorf("error flock.Lock: path=%s, %w", p, err)
-	}
-	return fl, nil
+// 	fl := flock.New(p)
+// 	if err := fl.Lock(); err != nil {
+// 		return nil, fmt.Errorf("error flock.Lock: path=%s, %w", p, err)
+// 	}
+// 	return fl, nil
+// }
+
+var flockmutex = mutexmap.NewRW[int64](200)
+
+// 排他ロックする
+func flockByTenantID2(tenantID int64) func() {
+	flockmutex.RLock(tenantID)
+	return func() { flockmutex.RUnlock(tenantID) }
+}
+
+// 排他ロックする
+func flockByTenantID2Write(tenantID int64) func() {
+	flockmutex.Lock(tenantID)
+	return func() { flockmutex.Unlock(tenantID) }
 }
 
 type TenantsAddHandlerResult struct {
@@ -578,12 +592,14 @@ func billingReportByCompetition(ctx context.Context, tenantDB dbOrTx, tenantID i
 
 	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
 	stop := t.SubStart(ctx, "flockByTenantID(v.tenantID)")
-	fl, err := flockByTenantID(tenantID)
-	if err != nil {
-		return nil, fmt.Errorf("error flockByTenantID: %w", err)
-	}
+	fl := flockByTenantID2(tenantID)
+	// fl, err := flockByTenantID(tenantID)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("error flockByTenantID: %w", err)
+	// }
+	defer fl()
 	stop()
-	defer fl.Close()
+	// defer fl.Close()
 
 	// スコアを登録した参加者のIDを取得する
 	scoredPlayerIDs := []string{}
@@ -1059,12 +1075,14 @@ func competitionScoreHandler(c echo.Context) error {
 
 	// / DELETEしたタイミングで参照が来ると空っぽのランキングになるのでロックする
 	stop := t.SubStart(ctx, "flockByTenantID(v.tenantID)")
-	fl, err := flockByTenantID(v.tenantID)
-	if err != nil {
-		return fmt.Errorf("error flockByTenantID: %w", err)
-	}
+	fl := flockByTenantID2Write(v.tenantID)
+	defer fl()
+	// fl, err := flockByTenantID(v.tenantID)
+	// if err != nil {
+	// 	return fmt.Errorf("error flockByTenantID: %w", err)
+	// }
 	stop()
-	defer fl.Close()
+	// defer fl.Close()
 	var rowNum int64
 	playerScoreRows := []PlayerScoreRow{}
 	for {
@@ -1249,12 +1267,14 @@ func playerHandler(c echo.Context) error {
 
 	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
 	stop := t.SubStart(ctx, "flockByTenantID(v.tenantID)")
-	fl, err := flockByTenantID(v.tenantID)
-	if err != nil {
-		return fmt.Errorf("error flockByTenantID: %w", err)
-	}
+	fl := flockByTenantID2(v.tenantID)
+	defer fl()
+	// fl, err := flockByTenantID(v.tenantID)
+	// if err != nil {
+	// 	return fmt.Errorf("error flockByTenantID: %w", err)
+	// }
 	stop()
-	defer fl.Close()
+	// defer fl.Close()
 	pss := make([]PlayerScoreRow, 0, len(cs))
 	for _, c := range cs {
 		ps := PlayerScoreRow{}
@@ -1384,12 +1404,14 @@ func competitionRankingHandler(c echo.Context) error {
 
 	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
 	stop := t.SubStart(ctx, "flockByTenantID(v.tenantID)")
-	fl, err := flockByTenantID(v.tenantID)
-	if err != nil {
-		return fmt.Errorf("error flockByTenantID: %w", err)
-	}
+	fl := flockByTenantID2(v.tenantID)
+	defer fl()
+	// fl, err := flockByTenantID(v.tenantID)
+	// if err != nil {
+	// 	return fmt.Errorf("error flockByTenantID: %w", err)
+	// }
 	stop()
-	defer fl.Close()
+	// defer fl.Close()
 
 	pss := []PlayerScoreRowRanking{}
 	if err := tenantDB.SelectContext(
