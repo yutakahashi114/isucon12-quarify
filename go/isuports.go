@@ -577,10 +577,12 @@ func billingReportByCompetition(ctx context.Context, tenantDB dbOrTx, tenantID i
 	}
 
 	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
+	stop := t.SubStart(ctx, "flockByTenantID(v.tenantID)")
 	fl, err := flockByTenantID(tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("error flockByTenantID: %w", err)
 	}
+	stop()
 	defer fl.Close()
 
 	// スコアを登録した参加者のIDを取得する
@@ -1056,10 +1058,12 @@ func competitionScoreHandler(c echo.Context) error {
 	}
 
 	// / DELETEしたタイミングで参照が来ると空っぽのランキングになるのでロックする
+	stop := t.SubStart(ctx, "flockByTenantID(v.tenantID)")
 	fl, err := flockByTenantID(v.tenantID)
 	if err != nil {
 		return fmt.Errorf("error flockByTenantID: %w", err)
 	}
+	stop()
 	defer fl.Close()
 	var rowNum int64
 	playerScoreRows := []PlayerScoreRow{}
@@ -1244,10 +1248,12 @@ func playerHandler(c echo.Context) error {
 	}
 
 	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
+	stop := t.SubStart(ctx, "flockByTenantID(v.tenantID)")
 	fl, err := flockByTenantID(v.tenantID)
 	if err != nil {
 		return fmt.Errorf("error flockByTenantID: %w", err)
 	}
+	stop()
 	defer fl.Close()
 	pss := make([]PlayerScoreRow, 0, len(cs))
 	for _, c := range cs {
@@ -1377,10 +1383,12 @@ func competitionRankingHandler(c echo.Context) error {
 	}
 
 	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
+	stop := t.SubStart(ctx, "flockByTenantID(v.tenantID)")
 	fl, err := flockByTenantID(v.tenantID)
 	if err != nil {
 		return fmt.Errorf("error flockByTenantID: %w", err)
 	}
+	stop()
 	defer fl.Close()
 
 	pss := []PlayerScoreRowRanking{}
