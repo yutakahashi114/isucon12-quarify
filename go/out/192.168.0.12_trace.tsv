@@ -1,0 +1,27 @@
+path	count	total(ms)	mean(ms)	min(ms)	max(ms)	query_count/request_count	query
+POST /initialize2	1	2,940.430	2,940.430	2,940.430	2,940.430	-	-
+GET /api/admin/tenants/billing2/:tenant_id	70	1,458.190	20.831	2.841	67.366	-	-
+- sql total time	-	151.378	-	-	-	-	-
+-	475	113.667	0.239	0.181	1.148	6.785	QueryContext SELECT player_id, created_at AS min_created_at FROM visit_history_2 WHERE tenant_id = ? AND competition_id = ?
+-	71	13.071	0.184	0.123	2.514	1.014	Connect 
+-	878	12.612	0.014	0.006	0.061	12.542	QueryContext SELECT * FROM competition WHERE id = ?
+-	475	10.962	0.023	0.019	0.439	6.785	QueryContext SELECT DISTINCT(player_id) FROM player_score WHERE tenant_id = ? AND competition_id = ?
+-	70	1.065	0.015	0.012	0.051	1.000	QueryContext SELECT * FROM competition WHERE tenant_id=?
+-	475	0.000	0.000	0.000	0.000	6.785	flockByTenantID(v.tenantID)
+POST /api/admin/tenants/add2/:tenant_id	9	231.437	25.715	19.435	38.939	-	-
+unknown	0	0.000	0.000	0.000	0.000	-	-
+- sql total time	-	6.658	-	-	-	-	-
+-	70	6.658	0.095	0.029	0.175	0.000	Close 
+request							
+POST /initialize2	1	2,940.430	2,940.430	2,940.430	2,940.430	-	-
+GET /api/admin/tenants/billing2/:tenant_id	70	1,458.190	20.831	2.841	67.366	-	-
+POST /api/admin/tenants/add2/:tenant_id	9	231.437	25.715	19.435	38.939	-	-
+unknown	0	0.000	0.000	0.000	0.000	-	-
+sql							
+-	475	113.667	0.239	0.181	1.148	-	QueryContext SELECT player_id, created_at AS min_created_at FROM visit_history_2 WHERE tenant_id = ? AND competition_id = ?
+-	71	13.071	0.184	0.123	2.514	-	Connect 
+-	878	12.612	0.014	0.006	0.061	-	QueryContext SELECT * FROM competition WHERE id = ?
+-	475	10.962	0.023	0.019	0.439	-	QueryContext SELECT DISTINCT(player_id) FROM player_score WHERE tenant_id = ? AND competition_id = ?
+-	70	6.658	0.095	0.029	0.175	-	Close 
+-	70	1.065	0.015	0.012	0.051	-	QueryContext SELECT * FROM competition WHERE tenant_id=?
+-	475	0.000	0.000	0.000	0.000	-	flockByTenantID(v.tenantID)
