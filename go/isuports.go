@@ -774,7 +774,7 @@ func tenantsBillingHandler(c echo.Context) error {
 			continue
 		}
 
-		if 11 <= t.ID {
+		if 1 < t.ID {
 			host := "192.168.0.13:3000"
 			if t.ID <= 30 {
 				host = "192.168.0.12:3000"
@@ -2089,7 +2089,7 @@ func Proxy(c echo.Context, v *Viewer) bool {
 		return false
 	}
 
-	if v.tenantID <= 10 {
+	if v.tenantID <= 1 {
 		return false
 	}
 	host := "192.168.0.13:3000"
