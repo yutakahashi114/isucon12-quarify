@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -551,20 +552,20 @@ func tenantsAddHandler(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("error get LastInsertId: %w", err)
 	}
-	// {
-	// 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.12:3000/api/admin/tenants/add2/%v", id), nil)
-	// 	re, err := http.DefaultClient.Do(req)
-	// 	log.Print(err)
-	// 	io.ReadAll(re.Body)
-	// 	re.Body.Close()
-	// }
-	// {
-	// 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.13:3000/api/admin/tenants/add2/%v", id), nil)
-	// 	re, err := http.DefaultClient.Do(req)
-	// 	log.Print(err)
-	// 	io.ReadAll(re.Body)
-	// 	re.Body.Close()
-	// }
+	{
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.12:3000/api/admin/tenants/add2/%v", id), nil)
+		re, err := http.DefaultClient.Do(req)
+		log.Print(err)
+		io.ReadAll(re.Body)
+		re.Body.Close()
+	}
+	{
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.13:3000/api/admin/tenants/add2/%v", id), nil)
+		re, err := http.DefaultClient.Do(req)
+		log.Print(err)
+		io.ReadAll(re.Body)
+		re.Body.Close()
+	}
 	// NOTE: 先にadminDBに書き込まれることでこのAPIの処理中に
 	//       /api/admin/tenants/billingにアクセスされるとエラーになりそう
 	//       ロックなどで対処したほうが良さそう
@@ -773,29 +774,29 @@ func tenantsBillingHandler(c echo.Context) error {
 			continue
 		}
 
-		// if 1 < t.ID {
-		// 	host := "192.168.0.13:3000"
-		// 	if t.ID <= 30 {
-		// 		host = "192.168.0.12:3000"
-		// 	}
+		if t.ID%3 != 1 {
+			host := "192.168.0.13:3000" // 0
+			if t.ID%3 == 2 {
+				host = "192.168.0.12:3000" // 2
+			}
 
-		// 	req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodGet, fmt.Sprintf("http://%v/api/admin/tenants/billing2/%v", host, t.ID), nil)
-		// 	re, err := http.DefaultClient.Do(req)
-		// 	if err != nil {
-		// 		return fmt.Errorf("failed to billing2: %w", err)
-		// 	}
-		// 	tb := TenantWithBilling{}
-		// 	json.NewDecoder(re.Body).Decode(&tb)
-		// 	re.Body.Close()
-		// 	tb.Name = t.Name
-		// 	tb.DisplayName = t.DisplayName
+			req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodGet, fmt.Sprintf("http://%v/api/admin/tenants/billing2/%v", host, t.ID), nil)
+			re, err := http.DefaultClient.Do(req)
+			if err != nil {
+				return fmt.Errorf("failed to billing2: %w", err)
+			}
+			tb := TenantWithBilling{}
+			json.NewDecoder(re.Body).Decode(&tb)
+			re.Body.Close()
+			tb.Name = t.Name
+			tb.DisplayName = t.DisplayName
 
-		// 	tenantBillings = append(tenantBillings, tb)
-		// 	if len(tenantBillings) >= 10 {
-		// 		break
-		// 	}
-		// 	continue
-		// }
+			tenantBillings = append(tenantBillings, tb)
+			if len(tenantBillings) >= 10 {
+				break
+			}
+			continue
+		}
 		err := func(t TenantRow) error {
 			tb := TenantWithBilling{
 				ID:          strconv.FormatInt(t.ID, 10),
@@ -2047,20 +2048,20 @@ func initializeHandler(c echo.Context) error {
 
 	rankingCache = cache.New[string, []CompetitionRank](1000)
 
-	// {
-	// 	req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodPost, "http://192.168.0.12:3000/initialize2", nil)
-	// 	re, err := http.DefaultClient.Do(req)
-	// 	log.Print(err)
-	// 	io.ReadAll(re.Body)
-	// 	re.Body.Close()
-	// }
-	// {
-	// 	req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodPost, "http://192.168.0.13:3000/initialize2", nil)
-	// 	re, err := http.DefaultClient.Do(req)
-	// 	log.Print(err)
-	// 	io.ReadAll(re.Body)
-	// 	re.Body.Close()
-	// }
+	{
+		req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodPost, "http://192.168.0.12:3000/initialize2", nil)
+		re, err := http.DefaultClient.Do(req)
+		log.Print(err)
+		io.ReadAll(re.Body)
+		re.Body.Close()
+	}
+	{
+		req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodPost, "http://192.168.0.13:3000/initialize2", nil)
+		re, err := http.DefaultClient.Do(req)
+		log.Print(err)
+		io.ReadAll(re.Body)
+		re.Body.Close()
+	}
 
 	res := InitializeHandlerResult{
 		Lang: "go",
@@ -2092,35 +2093,35 @@ var rankingCache = cache.New[string, []CompetitionRank](1000)
 
 var ownHost = getEnv("WOEKER_ADDR", "")
 
-// func Proxy(c echo.Context, v *Viewer) bool {
-// 	// 最初に"192.168.0.11"にリゥエストする
-// 	// それ以外はプロキシされたところ
-// 	if ownHost != "192.168.0.11" {
-// 		return false
-// 	}
+func Proxy(c echo.Context, v *Viewer) bool {
+	// 最初に"192.168.0.11"にリゥエストする
+	// それ以外はプロキシされたところ
+	if ownHost != "192.168.0.11" {
+		return false
+	}
 
-// 	if v.tenantID <= 1 {
-// 		return false
-// 	}
-// 	host := "192.168.0.13:3000"
-// 	if v.tenantID <= 30 {
-// 		host = "192.168.0.12:3000"
-// 	}
+	host := "192.168.0.13:3000"
+	if v.tenantID%3 == 1 {
+		return false
+	}
+	if v.tenantID%3 == 2 {
+		host = "192.168.0.12:3000"
+	}
 
-// 	rp := &httputil.ReverseProxy{
-// 		Director: func(req *http.Request) {
-// 			req.URL.Scheme = "http"
-// 			req.URL.Host = host
+	rp := &httputil.ReverseProxy{
+		Director: func(req *http.Request) {
+			req.URL.Scheme = "http"
+			req.URL.Host = host
 
-// 			if _, ok := req.Header["User-Agent"]; !ok {
-// 				// explicitly disable User-Agent so it's not set to default value
-// 				req.Header.Set("User-Agent", "")
-// 			}
-// 		},
-// 	}
-// 	rp.ServeHTTP(c.Response(), c.Request())
-// 	return true
-// }
+			if _, ok := req.Header["User-Agent"]; !ok {
+				// explicitly disable User-Agent so it's not set to default value
+				req.Header.Set("User-Agent", "")
+			}
+		},
+	}
+	rp.ServeHTTP(c.Response(), c.Request())
+	return true
+}
 
 // func Proxy(c echo) {
 // 	r := chi.NewRouter()
