@@ -175,7 +175,7 @@ func Run() {
 		e.Logger.Panicf("error initializeSQLLogger: %s", err)
 	}
 	defer sqlLogger.Close()
-
+	log.Printf("aaaaaaaaaaaaaaaaa", getEnv("WOEKER_ADDR", "192.168.0.11"))
 	// e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(SetCacheControlPrivate)
