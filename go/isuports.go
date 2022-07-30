@@ -959,9 +959,9 @@ func playersListHandler(c echo.Context) error {
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1008,9 +1008,9 @@ func playersAddHandler(c echo.Context) error {
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1074,9 +1074,9 @@ func playerDisqualifiedHandler(c echo.Context) error {
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1142,9 +1142,9 @@ func competitionsAddHandler(c echo.Context) error {
 		c.Response().WriteHeader(429)
 		return nil
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1191,9 +1191,9 @@ func competitionFinishHandler(c echo.Context) error {
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1244,9 +1244,9 @@ func competitionScoreHandler(c echo.Context) error {
 	if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1416,9 +1416,9 @@ func billingHandler(c echo.Context) error {
 	if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1481,9 +1481,9 @@ func playerHandler(c echo.Context) error {
 	if v.role != RolePlayer {
 		return echo.NewHTTPError(http.StatusForbidden, "role player required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1643,9 +1643,9 @@ func competitionRankingHandler(c echo.Context) error {
 	if v.role != RolePlayer {
 		return echo.NewHTTPError(http.StatusForbidden, "role player required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1868,9 +1868,9 @@ func playerCompetitionsHandler(c echo.Context) error {
 	if v.role != RolePlayer {
 		return echo.NewHTTPError(http.StatusForbidden, "role player required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1895,9 +1895,9 @@ func organizerCompetitionsHandler(c echo.Context) error {
 	if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1989,9 +1989,9 @@ func meHandler(c echo.Context) error {
 			},
 		})
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
