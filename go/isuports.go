@@ -1370,8 +1370,9 @@ func competitionScoreHandler(c echo.Context) error {
 		playerScoreRows,
 	); err != nil {
 		return fmt.Errorf(
-			"error Insert player_score: id=%s, tenant_id=%d, playerID=%s, competitionID=%s, score=%d, rowNum=%d, createdAt=%d, updatedAt=%d, %w",
-			// ps.ID, ps.TenantID, ps.PlayerID, ps.CompetitionID, ps.Score, ps.RowNum, ps.CreatedAt, ps.UpdatedAt, err,
+			"error Insert player_score: , %w",
+			// ps.ID, ps.TenantID, ps.PlayerID, ps.CompetitionID, ps.Score, ps.RowNum, ps.CreatedAt, ps.UpdatedAt,
+			err,
 		)
 	}
 	tx.Commit()
