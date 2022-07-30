@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 	"github.com/isucon/isucon12-qualify/webapp/go/mutexmap"
 	"github.com/isucon/isucon12-qualify/webapp/go/trace"
 	"github.com/jmoiron/sqlx"
@@ -105,29 +106,43 @@ func createTenantDB(id int64) error {
 
 // システム全体で一意なIDを生成する
 func dispenseID(ctx context.Context) (string, error) {
-	var id int64
 	var lastErr error
 	for i := 0; i < 100; i++ {
-		var ret sql.Result
-		ret, err := adminDB.ExecContext(ctx, "REPLACE INTO id_generator (stub) VALUES (?);", "a")
+		id, err := uuid.NewUUID()
 		if err != nil {
-			if merr, ok := err.(*mysql.MySQLError); ok && merr.Number == 1213 { // deadlock
-				lastErr = fmt.Errorf("error REPLACE INTO id_generator: %w", err)
-				continue
-			}
-			return "", fmt.Errorf("error REPLACE INTO id_generator: %w", err)
+			lastErr = err
+			continue
 		}
-		id, err = ret.LastInsertId()
-		if err != nil {
-			return "", fmt.Errorf("error ret.LastInsertId: %w", err)
-		}
-		break
-	}
-	if id != 0 {
-		return fmt.Sprintf("%x", id), nil
+		return id.String(), nil
 	}
 	return "", lastErr
 }
+
+// // システム全体で一意なIDを生成する
+// func dispenseID(ctx context.Context) (string, error) {
+// 	var id int64
+// 	var lastErr error
+// 	for i := 0; i < 100; i++ {
+// 		var ret sql.Result
+// 		ret, err := adminDB.ExecContext(ctx, "REPLACE INTO id_generator (stub) VALUES (?);", "a")
+// 		if err != nil {
+// 			if merr, ok := err.(*mysql.MySQLError); ok && merr.Number == 1213 { // deadlock
+// 				lastErr = fmt.Errorf("error REPLACE INTO id_generator: %w", err)
+// 				continue
+// 			}
+// 			return "", fmt.Errorf("error REPLACE INTO id_generator: %w", err)
+// 		}
+// 		id, err = ret.LastInsertId()
+// 		if err != nil {
+// 			return "", fmt.Errorf("error ret.LastInsertId: %w", err)
+// 		}
+// 		break
+// 	}
+// 	if id != 0 {
+// 		return fmt.Sprintf("%x", id), nil
+// 	}
+// 	return "", lastErr
+// }
 
 // 全APIにCache-Control: privateを設定する
 func SetCacheControlPrivate(next echo.HandlerFunc) echo.HandlerFunc {
