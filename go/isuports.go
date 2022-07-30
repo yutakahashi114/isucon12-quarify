@@ -175,7 +175,7 @@ func Run() {
 		e.Logger.Panicf("error initializeSQLLogger: %s", err)
 	}
 	defer sqlLogger.Close()
-	log.Printf("aaaaaaaaaaaaaaaaa", getEnv("WOEKER_ADDR", "none"))
+
 	// e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(SetCacheControlPrivate)
@@ -1445,6 +1445,25 @@ func competitionRankingHandler(c echo.Context) error {
 			return fmt.Errorf("error strconv.ParseUint: rankAfterStr=%s, %w", rankAfterStr, err)
 		}
 	}
+	key := fmt.Sprintf("tenantID:%v:competitionID:%v", tenant.ID, competitionID)
+	if pagedRanks, ok := rankingCache.Get(key); ok {
+		max := rankAfter + 100
+		if max >= int64(len(pagedRanks)) {
+			max = int64(len(pagedRanks))
+		}
+		res := SuccessResult{
+			Status: true,
+			Data: CompetitionRankingHandlerResult{
+				Competition: CompetitionDetail{
+					ID:         competition.ID,
+					Title:      competition.Title,
+					IsFinished: competition.FinishedAt.Valid,
+				},
+				Ranks: pagedRanks[rankAfter:max],
+			},
+		}
+		return c.JSON(http.StatusOK, res)
+	}
 
 	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
 	stop := t.SubStart(ctx, "flockByTenantID(v.tenantID)")
@@ -1472,19 +1491,18 @@ func competitionRankingHandler(c echo.Context) error {
 			player.id = player_score.player_id
 		)
 		ORDER BY player_score.score DESC, player_score.row_num ASC
-		LIMIT ? OFFSET ?
 		`,
 		tenant.ID,
 		competitionID,
 		tenant.ID,
 		competitionID,
-		100,
-		rankAfter,
+		// 100,
+		// rankAfter,
 	); err != nil {
 		return fmt.Errorf("error Select player_score: tenantID=%d, competitionID=%s, %w", tenant.ID, competitionID, err)
 	}
 
-	pagedRanks := make([]CompetitionRank, 0, 100)
+	pagedRanks := make([]CompetitionRank, 0, len(pss))
 	for i, rank := range pss {
 		pagedRanks = append(pagedRanks, CompetitionRank{
 			Rank:              int64(i + 1),
@@ -1492,10 +1510,8 @@ func competitionRankingHandler(c echo.Context) error {
 			PlayerID:          rank.PlayerID,
 			PlayerDisplayName: rank.DisplayName,
 		})
-		if len(pagedRanks) >= 100 {
-			break
-		}
 	}
+	rankingCache.Set(key, pagedRanks)
 	/*
 		pss := []PlayerScoreRow{}
 		if err := tenantDB.SelectContext(
@@ -1549,6 +1565,10 @@ func competitionRankingHandler(c echo.Context) error {
 			}
 		}
 	*/
+	max := rankAfter + 100
+	if max >= int64(len(pagedRanks)) {
+		max = int64(len(pagedRanks))
+	}
 	res := SuccessResult{
 		Status: true,
 		Data: CompetitionRankingHandlerResult{
@@ -1557,7 +1577,7 @@ func competitionRankingHandler(c echo.Context) error {
 				Title:      competition.Title,
 				IsFinished: competition.FinishedAt.Valid,
 			},
-			Ranks: pagedRanks,
+			Ranks: pagedRanks[rankAfter:max],
 		},
 	}
 	return c.JSON(http.StatusOK, res)
@@ -1749,6 +1769,8 @@ func initializeHandler(c echo.Context) error {
 	tenantIDCache = cache.New[int64, TenantRow](200)
 	tenantNameCache = cache.New[string, TenantRow](200)
 
+	rankingCache = cache.New[string, []CompetitionRank](1000)
+
 	res := InitializeHandlerResult{
 		Lang: "go",
 	}
@@ -1757,3 +1779,5 @@ func initializeHandler(c echo.Context) error {
 
 var tenantIDCache = cache.New[int64, TenantRow](200)
 var tenantNameCache = cache.New[string, TenantRow](200)
+
+var rankingCache = cache.New[string, []CompetitionRank](1000)
