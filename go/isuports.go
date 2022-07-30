@@ -155,7 +155,7 @@ func SetCacheControlPrivate(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-var t = trace.New("out/worker1")
+var t = trace.New("out/" + ownHost)
 
 // Run は cmd/isuports/main.go から呼ばれるエントリーポイントです
 func Run() {
