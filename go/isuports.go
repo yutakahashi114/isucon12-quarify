@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -182,7 +184,9 @@ func Run() {
 
 	// SaaS管理者向けAPI
 	e.POST("/api/admin/tenants/add", tenantsAddHandler)
+	e.POST("/api/admin/tenants/add2/:tenant_id", tenantsAddHandler2)
 	e.GET("/api/admin/tenants/billing", tenantsBillingHandler)
+	e.GET("/api/admin/tenants/billing2/:tenant_id", tenantsBillingHandler2)
 
 	// テナント管理者向けAPI - 参加者追加、一覧、失格
 	e.GET("/api/organizer/players", playersListHandler)
@@ -206,6 +210,7 @@ func Run() {
 
 	// ベンチマーカー向けAPI
 	e.POST("/initialize", initializeHandler)
+	e.POST("/initialize2", initializeHandler2)
 
 	e.HTTPErrorHandler = errorResponseHandler
 
@@ -547,6 +552,13 @@ func tenantsAddHandler(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("error get LastInsertId: %w", err)
 	}
+	{
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.13:3000/api/admin/tenants/add2/%v", id), nil)
+		re, err := http.DefaultClient.Do(req)
+		log.Print(err)
+		io.ReadAll(re.Body)
+		re.Body.Close()
+	}
 	// NOTE: 先にadminDBに書き込まれることでこのAPIの処理中に
 	//       /api/admin/tenants/billingにアクセスされるとエラーになりそう
 	//       ロックなどで対処したほうが良さそう
@@ -563,6 +575,22 @@ func tenantsAddHandler(c echo.Context) error {
 		},
 	}
 	return c.JSON(http.StatusOK, SuccessResult{Status: true, Data: res})
+}
+
+// SasS管理者用API
+// テナントを追加する
+// POST /api/admin/tenants/add2
+func tenantsAddHandler2(c echo.Context) error {
+	tenantID := c.Param("tenant_id")
+	tid, _ := strconv.ParseInt(tenantID, 10, 64)
+	// NOTE: 先にadminDBに書き込まれることでこのAPIの処理中に
+	//       /api/admin/tenants/billingにアクセスされるとエラーになりそう
+	//       ロックなどで対処したほうが良さそう
+	if err := createTenantDB(tid); err != nil {
+		return fmt.Errorf("error createTenantDB: id=%d  %w", tid, err)
+	}
+
+	return c.NoContent(http.StatusOK)
 }
 
 // テナント名が規則に沿っているかチェックする
@@ -737,6 +765,24 @@ func tenantsBillingHandler(c echo.Context) error {
 		if beforeID != 0 && beforeID <= t.ID {
 			continue
 		}
+		if t.ID%2 == 0 {
+			req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodGet, fmt.Sprintf("http://192.168.0.13:3000/api/admin/tenants/billing2/%v", t.ID), nil)
+			re, err := http.DefaultClient.Do(req)
+			if err != nil {
+				return fmt.Errorf("failed to billing2: %w", err)
+			}
+			tb := TenantWithBilling{}
+			json.NewDecoder(re.Body).Decode(&tb)
+			re.Body.Close()
+			tb.Name = t.Name
+			tb.DisplayName = t.DisplayName
+
+			tenantBillings = append(tenantBillings, tb)
+			if len(tenantBillings) >= 10 {
+				break
+			}
+			continue
+		}
 		err := func(t TenantRow) error {
 			tb := TenantWithBilling{
 				ID:          strconv.FormatInt(t.ID, 10),
@@ -782,6 +828,102 @@ func tenantsBillingHandler(c echo.Context) error {
 	})
 }
 
+// SaaS管理者用API
+// テナントごとの課金レポートを最大10件、テナントのid降順で取得する
+// GET /api/admin/tenants/billing2
+// URL引数beforeを指定した場合、指定した値よりもidが小さいテナントの課金レポートを取得する
+func tenantsBillingHandler2(c echo.Context) error {
+	tenantID := c.Param("tenant_id")
+	tid, _ := strconv.ParseInt(tenantID, 10, 64)
+	ctx := c.Request().Context()
+
+	tb := TenantWithBilling{
+		ID: tenantID,
+	}
+	tenantDB, err := connectToTenantDB(tid)
+	if err != nil {
+		return fmt.Errorf("failed to connectToTenantDB: %w", err)
+	}
+	defer tenantDB.Close()
+	cs := []CompetitionRow{}
+	if err := tenantDB.SelectContext(
+		ctx,
+		&cs,
+		"SELECT * FROM competition WHERE tenant_id=?",
+		tid,
+	); err != nil {
+		return fmt.Errorf("failed to Select competition: %w", err)
+	}
+	for _, comp := range cs {
+		report, err := billingReportByCompetition(ctx, tenantDB, tid, comp.ID)
+		if err != nil {
+			return fmt.Errorf("failed to billingReportByCompetition: %w", err)
+		}
+		tb.BillingYen += report.BillingYen
+	}
+	return c.JSON(http.StatusOK, tb)
+}
+
+type TenantIDs struct {
+	IDs []int64
+}
+
+// SaaS管理者用API
+// テナントごとの課金レポートを最大10件、テナントのid降順で取得する
+// POST /api/admin/tenants/billing2
+// URL引数beforeを指定した場合、指定した値よりもidが小さいテナントの課金レポートを取得する
+func tenantsBillingHandler3(c echo.Context) error {
+	tids := TenantIDs{}
+	json.NewDecoder(c.Request().Body).Decode(&tids)
+	ctx := c.Request().Context()
+
+	tenantBillings := make([]TenantWithBilling, 0, len(tids.IDs))
+	for _, t := range tids.IDs {
+		err := func(t TenantRow) error {
+			tb := TenantWithBilling{
+				ID:          strconv.FormatInt(t.ID, 10),
+				Name:        t.Name,
+				DisplayName: t.DisplayName,
+			}
+			tenantDB, err := connectToTenantDB(t.ID)
+			if err != nil {
+				return fmt.Errorf("failed to connectToTenantDB: %w", err)
+			}
+			defer tenantDB.Close()
+			cs := []CompetitionRow{}
+			if err := tenantDB.SelectContext(
+				ctx,
+				&cs,
+				"SELECT * FROM competition WHERE tenant_id=?",
+				t.ID,
+			); err != nil {
+				return fmt.Errorf("failed to Select competition: %w", err)
+			}
+			for _, comp := range cs {
+				report, err := billingReportByCompetition(ctx, tenantDB, t.ID, comp.ID)
+				if err != nil {
+					return fmt.Errorf("failed to billingReportByCompetition: %w", err)
+				}
+				tb.BillingYen += report.BillingYen
+			}
+			tenantBillings = append(tenantBillings, tb)
+			return nil
+		}(TenantRow{ID: t})
+		if err != nil {
+			return err
+		}
+		if len(tenantBillings) >= 10 {
+			break
+		}
+	}
+	return c.JSON(http.StatusOK, SuccessResult{
+		Status: true,
+		Data: TenantsBillingHandlerResult{
+			Tenants: tenantBillings,
+		},
+	})
+}
+
 type PlayerDetail struct {
 	ID             string `json:"id"`
 	DisplayName    string `json:"display_name"`
@@ -802,6 +944,9 @@ func playersListHandler(c echo.Context) error {
 		return err
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
+	}
+	if Proxy(c, v) {
+		return nil
 	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
@@ -848,6 +993,9 @@ func playersAddHandler(c echo.Context) error {
 		return fmt.Errorf("error parseViewer: %w", err)
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
+	}
+	if Proxy(c, v) {
+		return nil
 	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
@@ -912,6 +1060,9 @@ func playerDisqualifiedHandler(c echo.Context) error {
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -972,6 +1123,9 @@ func competitionsAddHandler(c echo.Context) error {
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1017,6 +1171,9 @@ func competitionFinishHandler(c echo.Context) error {
 		return fmt.Errorf("error parseViewer: %w", err)
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
+	}
+	if Proxy(c, v) {
+		return nil
 	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
@@ -1067,6 +1224,9 @@ func competitionScoreHandler(c echo.Context) error {
 	}
 	if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
+	}
+	if Proxy(c, v) {
+		return nil
 	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
@@ -1231,6 +1391,9 @@ func billingHandler(c echo.Context) error {
 	if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1292,6 +1455,9 @@ func playerHandler(c echo.Context) error {
 	}
 	if v.role != RolePlayer {
 		return echo.NewHTTPError(http.StatusForbidden, "role player required")
+	}
+	if Proxy(c, v) {
+		return nil
 	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
@@ -1451,6 +1617,9 @@ func competitionRankingHandler(c echo.Context) error {
 	}
 	if v.role != RolePlayer {
 		return echo.NewHTTPError(http.StatusForbidden, "role player required")
+	}
+	if Proxy(c, v) {
+		return nil
 	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
@@ -1674,6 +1843,9 @@ func playerCompetitionsHandler(c echo.Context) error {
 	if v.role != RolePlayer {
 		return echo.NewHTTPError(http.StatusForbidden, "role player required")
 	}
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1697,6 +1869,9 @@ func organizerCompetitionsHandler(c echo.Context) error {
 	}
 	if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
+	}
+	if Proxy(c, v) {
+		return nil
 	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
@@ -1789,6 +1964,9 @@ func meHandler(c echo.Context) error {
 			},
 		})
 	}
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1845,6 +2023,28 @@ func initializeHandler(c echo.Context) error {
 
 	rankingCache = cache.New[string, []CompetitionRank](1000)
 
+	req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodPost, "http://192.168.0.13:3000/initialize2", nil)
+	re, err := http.DefaultClient.Do(req)
+	log.Print(err)
+	io.ReadAll(re.Body)
+	re.Body.Close()
+
+	res := InitializeHandlerResult{
+		Lang: "go",
+	}
+	return c.JSON(http.StatusOK, SuccessResult{Status: true, Data: res})
+}
+
+func initializeHandler2(c echo.Context) error {
+	out, err := exec.Command(initializeScript).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error exec.Command: %s %e", string(out), err)
+	}
+	tenantIDCache = cache.New[int64, TenantRow](200)
+	tenantNameCache = cache.New[string, TenantRow](200)
+
+	rankingCache = cache.New[string, []CompetitionRank](1000)
+
 	res := InitializeHandlerResult{
 		Lang: "go",
 	}
@@ -1855,3 +2055,65 @@ var tenantIDCache = cache.New[int64, TenantRow](200)
 var tenantNameCache = cache.New[string, TenantRow](200)
 
 var rankingCache = cache.New[string, []CompetitionRank](1000)
+
+var ownHost = getEnv("WOEKER_ADDR", "")
+
+func Proxy(c echo.Context, v *Viewer) bool {
+	// 最初に"192.168.0.11"にリゥエストする
+	// それ以外はプロキシされたところ
+	if ownHost != "192.168.0.11" {
+		return false
+	}
+
+	// 192.168.0.11に来て偶数の場合、プロキシ
+	if v.tenantID%2 == 0 {
+		host := "192.168.0.13"
+
+		rp := &httputil.ReverseProxy{
+			Director: func(req *http.Request) {
+				req.URL.Scheme = "http"
+				req.URL.Host = host
+
+				if _, ok := req.Header["User-Agent"]; !ok {
+					// explicitly disable User-Agent so it's not set to default value
+					req.Header.Set("User-Agent", "")
+				}
+			},
+		}
+		rp.ServeHTTP(c.Response(), c.Request())
+		return true
+	}
+	// 奇数は自分でさばく
+	return false
+}
+
+// func Proxy(c echo) {
+// 	r := chi.NewRouter()
+// 	r.HandleFunc("/*", func(w http.ResponseWriter, r *http.Request) {
+// 		v, err := parseViewerReq(r)
+// 		if err != nil {
+// 			w.WriteHeader(http.StatusInternalServerError)
+// 			w.Write([]byte(fmt.Errorf("error parseViewer: %w", err).Error()))
+// 			return
+// 		}
+// 		if v.role == RoleOrganizer || v.role == RolePlayer {
+// 			host := "192.168.0.11"
+// 			if v.tenantID%2 == 0 {
+// 				host = "192.168.0.12"
+// 			}
+
+// 			rp := &httputil.ReverseProxy{
+// 				Director: func(req *http.Request) {
+// 					req.URL.Scheme = "http"
+// 					req.URL.Host = host
+
+// 					if _, ok := req.Header["User-Agent"]; !ok {
+// 						// explicitly disable User-Agent so it's not set to default value
+// 						req.Header.Set("User-Agent", "")
+// 					}
+// 				},
+// 			}
+// 			rp.ServeHTTP(w, r)
+// 		}
+// 	})
+// }
