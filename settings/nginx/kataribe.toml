@@ -133,7 +133,6 @@ name = "POST  /api/organizer/competition/.*/finish"
 regexp = '^POST /api/organizer/competition/.*/score'
 name = "POST  /api/organizer/competition/.*/score"
 
-
 [[bundle]]
 regexp = '^(GET|HEAD) /api/player/player/.*'
 name = "GET /api/player/player/.*"
@@ -141,3 +140,7 @@ name = "GET /api/player/player/.*"
 [[bundle]]
 regexp = '^(GET|HEAD) /api/player/competition/.*/ranking'
 name = "GET /api/player/competition/.*/ranking"
+
+[[bundle]]
+regexp = '^(GET|HEAD) /api/admin/tenants/billing\?.*'
+name = "GET /api/admin/tenants/billing?.*"
