@@ -1398,7 +1398,7 @@ func competitionRankingHandler(c echo.Context) error {
 			player.id = player_score.player_id
 		)
 		ORDER BY player_score.score DESC, player_score.row_num ASC
-		LIMIT ? OFFSER ?
+		LIMIT ? OFFSET ?
 		`,
 		tenant.ID,
 		competitionID,
