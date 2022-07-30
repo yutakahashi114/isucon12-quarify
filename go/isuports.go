@@ -344,7 +344,7 @@ func retrieveTenantRowFromHeader(c echo.Context) (*TenantRow, error) {
 	// テナントの存在確認
 	var tenant TenantRow
 	if err := adminDB.GetContext(
-		context.Background(),
+		c.Request().Context(),
 		&tenant,
 		"SELECT * FROM tenant WHERE name = ?",
 		tenantName,
@@ -477,7 +477,7 @@ func tenantsAddHandler(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	ctx := context.Background()
+	ctx := c.Request().Context()
 	now := time.Now().Unix()
 	insertRes, err := adminDB.ExecContext(
 		ctx,
@@ -642,7 +642,7 @@ func tenantsBillingHandler(c echo.Context) error {
 		)
 	}
 
-	ctx := context.Background()
+	ctx := c.Request().Context()
 	if v, err := parseViewer(c); err != nil {
 		return err
 	} else if v.role != RoleAdmin {
@@ -735,7 +735,7 @@ type PlayersListHandlerResult struct {
 // GET /api/organizer/players
 // 参加者一覧を返す
 func playersListHandler(c echo.Context) error {
-	ctx := context.Background()
+	ctx := c.Request().Context()
 	v, err := parseViewer(c)
 	if err != nil {
 		return err
@@ -781,7 +781,7 @@ type PlayersAddHandlerResult struct {
 // GET /api/organizer/players/add
 // テナントに参加者を追加する
 func playersAddHandler(c echo.Context) error {
-	ctx := context.Background()
+	ctx := c.Request().Context()
 	v, err := parseViewer(c)
 	if err != nil {
 		return fmt.Errorf("error parseViewer: %w", err)
@@ -844,7 +844,7 @@ type PlayerDisqualifiedHandlerResult struct {
 // POST /api/organizer/player/:player_id/disqualified
 // 参加者を失格にする
 func playerDisqualifiedHandler(c echo.Context) error {
-	ctx := context.Background()
+	ctx := c.Request().Context()
 	v, err := parseViewer(c)
 	if err != nil {
 		return fmt.Errorf("error parseViewer: %w", err)
@@ -904,7 +904,7 @@ type CompetitionsAddHandlerResult struct {
 // POST /api/organizer/competitions/add
 // 大会を追加する
 func competitionsAddHandler(c echo.Context) error {
-	ctx := context.Background()
+	ctx := c.Request().Context()
 	v, err := parseViewer(c)
 	if err != nil {
 		return fmt.Errorf("error parseViewer: %w", err)
@@ -950,7 +950,7 @@ func competitionsAddHandler(c echo.Context) error {
 // POST /api/organizer/competition/:competition_id/finish
 // 大会を終了する
 func competitionFinishHandler(c echo.Context) error {
-	ctx := context.Background()
+	ctx := c.Request().Context()
 	v, err := parseViewer(c)
 	if err != nil {
 		return fmt.Errorf("error parseViewer: %w", err)
@@ -999,7 +999,7 @@ type ScoreHandlerResult struct {
 // POST /api/organizer/competition/:competition_id/score
 // 大会のスコアをCSVでアップロードする
 func competitionScoreHandler(c echo.Context) error {
-	ctx := context.Background()
+	ctx := c.Request().Context()
 	v, err := parseViewer(c)
 	if err != nil {
 		return fmt.Errorf("error parseViewer: %w", err)
@@ -1144,7 +1144,7 @@ type BillingHandlerResult struct {
 // GET /api/organizer/billing
 // テナント内の課金レポートを取得する
 func billingHandler(c echo.Context) error {
-	ctx := context.Background()
+	ctx := c.Request().Context()
 	v, err := parseViewer(c)
 	if err != nil {
 		return fmt.Errorf("error parseViewer: %w", err)
@@ -1200,7 +1200,7 @@ type PlayerHandlerResult struct {
 // GET /api/player/player/:player_id
 // 参加者の詳細情報を取得する
 func playerHandler(c echo.Context) error {
-	ctx := context.Background()
+	ctx := c.Request().Context()
 
 	v, err := parseViewer(c)
 	if err != nil {
@@ -1311,7 +1311,7 @@ type CompetitionRankingHandlerResult struct {
 // GET /api/player/competition/:competition_id/ranking
 // 大会ごとのランキングを取得する
 func competitionRankingHandler(c echo.Context) error {
-	ctx := context.Background()
+	ctx := c.Request().Context()
 	v, err := parseViewer(c)
 	if err != nil {
 		return err
@@ -1449,7 +1449,7 @@ type CompetitionsHandlerResult struct {
 // GET /api/player/competitions
 // 大会の一覧を取得する
 func playerCompetitionsHandler(c echo.Context) error {
-	ctx := context.Background()
+	ctx := c.Request().Context()
 
 	v, err := parseViewer(c)
 	if err != nil {
@@ -1493,7 +1493,7 @@ func organizerCompetitionsHandler(c echo.Context) error {
 }
 
 func competitionsHandler(c echo.Context, v *Viewer, tenantDB dbOrTx) error {
-	ctx := context.Background()
+	ctx := c.Request().Context()
 
 	cs := []CompetitionRow{}
 	if err := tenantDB.SelectContext(
@@ -1578,7 +1578,7 @@ func meHandler(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("error connectToTenantDB: %w", err)
 	}
-	ctx := context.Background()
+	ctx := c.Request().Context()
 	p, err := retrievePlayer(ctx, tenantDB, v.playerID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
