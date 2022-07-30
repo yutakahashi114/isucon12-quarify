@@ -603,6 +603,14 @@ func billingReportByCompetition(ctx context.Context, tenantDB dbOrTx, tenantID i
 		return nil, fmt.Errorf("error retrieveCompetition: %w", err)
 	}
 
+	// 大会が終了している場合のみ請求金額が確定するので計算する
+	if !comp.FinishedAt.Valid {
+		return &BillingReport{
+			CompetitionID:    comp.ID,
+			CompetitionTitle: comp.Title,
+		}, nil
+	}
+
 	// ランキングにアクセスした参加者のIDを取得する
 	vhs := []VisitHistorySummaryRow{}
 	if err := adminDB.SelectContext(
