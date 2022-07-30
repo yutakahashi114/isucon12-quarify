@@ -19,6 +19,7 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
+	"github.com/isucon/isucon12-qualify/webapp/go/cache"
 	"github.com/isucon/isucon12-qualify/webapp/go/mutexmap"
 	"github.com/isucon/isucon12-qualify/webapp/go/trace"
 	"github.com/jmoiron/sqlx"
@@ -357,18 +358,35 @@ func retrieveTenantRowFromHeader(c echo.Context) (*TenantRow, error) {
 			DisplayName: "admin",
 		}, nil
 	}
-
-	// テナントの存在確認
-	var tenant TenantRow
-	if err := adminDB.GetContext(
-		c.Request().Context(),
-		&tenant,
-		"SELECT * FROM tenant WHERE name = ?",
-		tenantName,
-	); err != nil {
-		return nil, fmt.Errorf("failed to Select tenant: name=%s, %w", tenantName, err)
+	tenant, err := tenantNameCache.GetOrSet(tenantName, func() (TenantRow, error) {
+		var tenant TenantRow
+		if err := adminDB.GetContext(
+			c.Request().Context(),
+			&tenant,
+			"SELECT * FROM tenant WHERE name = ?",
+			tenantName,
+		); err != nil {
+			return tenant, fmt.Errorf("failed to Select tenant: name=%s, %w", tenantName, err)
+		}
+		return tenant, nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	return &tenant, nil
+	tenantIDCache.Set(tenant.ID, tenant)
+	return &tenant, err
+
+	// // テナントの存在確認
+	// var tenant TenantRow
+	// if err := adminDB.GetContext(
+	// 	c.Request().Context(),
+	// 	&tenant,
+	// 	"SELECT * FROM tenant WHERE name = ?",
+	// 	tenantName,
+	// ); err != nil {
+	// 	return nil, fmt.Errorf("failed to Select tenant: name=%s, %w", tenantName, err)
+	// }
+	// return &tenant, nil
 }
 
 type TenantRow struct {
@@ -1728,8 +1746,14 @@ func initializeHandler(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("error exec.Command: %s %e", string(out), err)
 	}
+	tenantIDCache = cache.New[int64, TenantRow](200)
+	tenantNameCache = cache.New[string, TenantRow](200)
+
 	res := InitializeHandlerResult{
 		Lang: "go",
 	}
 	return c.JSON(http.StatusOK, SuccessResult{Status: true, Data: res})
 }
+
+var tenantIDCache = cache.New[int64, TenantRow](200)
+var tenantNameCache = cache.New[string, TenantRow](200)
