@@ -66,6 +66,7 @@ func connectAdminDBDSN() string {
 	config.Passwd = getEnv("ISUCON_DB_PASSWORD", "isucon")
 	config.DBName = getEnv("ISUCON_DB_NAME", "isuports")
 	config.ParseTime = true
+	config.InterpolateParams = true
 	return config.FormatDSN()
 }
 
@@ -199,7 +200,9 @@ func Run() {
 		return
 	}
 	adminDB.DB = t.DB(connectAdminDBDSN(), adminDB.Driver())
-	adminDB.SetMaxOpenConns(10)
+	adminDB.SetMaxOpenConns(150)
+	adminDB.SetMaxIdleConns(150)
+	adminDB.SetConnMaxLifetime(time.Second * 90)
 	defer adminDB.Close()
 
 	port := getEnv("SERVER_APP_PORT", "3000")
