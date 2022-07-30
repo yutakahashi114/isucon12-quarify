@@ -3,6 +3,8 @@ module github.com/isucon/isucon12-qualify/webapp/go
 go 1.18
 
 require (
+	github.com/dustin/go-humanize v1.0.0
+	github.com/go-chi/chi/v5 v5.0.7
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gofrs/flock v0.8.1
 	github.com/jmoiron/sqlx v1.3.5
@@ -10,7 +12,11 @@ require (
 	github.com/labstack/gommon v0.3.1
 	github.com/lestrrat-go/jwx/v2 v2.0.2
 	github.com/mattn/go-sqlite3 v1.14.13
+	github.com/olekukonko/tablewriter v0.0.5
 	github.com/shogo82148/go-sql-proxy v0.6.1
+	github.com/simukti/sqldb-logger v0.0.0-20220521163925-faf2f2be0eb6
+	goji.io v2.0.2+incompatible
+	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 )
 
 require (
@@ -25,6 +31,7 @@ require (
 	github.com/lestrrat-go/option v1.0.0 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
