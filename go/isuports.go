@@ -1397,7 +1397,7 @@ func competitionRankingHandler(c echo.Context) error {
 		INNER JOIN player ON (
 			player.id = player_score.player_id
 		)
-		OEDER BY player_score.score DESC, player_score.row_num ASC
+		ORDER BY player_score.score DESC, player_score.row_num ASC
 		LIMIT ? OFFSER ?
 		`,
 		tenant.ID,
