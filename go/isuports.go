@@ -20,6 +20,7 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/gofrs/flock"
+	"github.com/isucon/isucon12-qualify/webapp/go/trace"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -57,8 +58,7 @@ func getEnv(key string, defaultValue string) string {
 	return defaultValue
 }
 
-// 管理用DBに接続する
-func connectAdminDB() (*sqlx.DB, error) {
+func connectAdminDBDSN() string {
 	config := mysql.NewConfig()
 	config.Net = "tcp"
 	config.Addr = getEnv("ISUCON_DB_HOST", "127.0.0.1") + ":" + getEnv("ISUCON_DB_PORT", "3306")
@@ -66,8 +66,12 @@ func connectAdminDB() (*sqlx.DB, error) {
 	config.Passwd = getEnv("ISUCON_DB_PASSWORD", "isucon")
 	config.DBName = getEnv("ISUCON_DB_NAME", "isuports")
 	config.ParseTime = true
-	dsn := config.FormatDSN()
-	return sqlx.Open("mysql", dsn)
+	return config.FormatDSN()
+}
+
+// 管理用DBに接続する
+func connectAdminDB() (*sqlx.DB, error) {
+	return sqlx.Open("mysql", connectAdminDBDSN())
 }
 
 // テナントDBのパスを返す
@@ -83,6 +87,8 @@ func connectToTenantDB(id int64) (*sqlx.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open tenant DB: %w", err)
 	}
+	db.DB = t.DB(fmt.Sprintf("file:%s?mode=rw", p), db.Driver())
+
 	return db, nil
 }
 
@@ -131,9 +137,12 @@ func SetCacheControlPrivate(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+var t = trace.New("out/worker1")
+
 // Run は cmd/isuports/main.go から呼ばれるエントリーポイントです
 func Run() {
-	e := echo.New()
+	e := t.Echo(echo.New())
+	// e := echo.New()
 	e.Debug = true
 	e.Logger.SetLevel(log.DEBUG)
 
@@ -189,6 +198,7 @@ func Run() {
 		e.Logger.Fatalf("failed to connect db: %v", err)
 		return
 	}
+	adminDB.DB = t.DB(connectAdminDBDSN(), adminDB.Driver())
 	adminDB.SetMaxOpenConns(10)
 	defer adminDB.Close()
 
@@ -1609,6 +1619,7 @@ type InitializeHandlerResult struct {
 // ベンチマーカーが起動したときに最初に呼ぶ
 // データベースの初期化などが実行されるため、スキーマを変更した場合などは適宜改変すること
 func initializeHandler(c echo.Context) error {
+	t.Start(time.Second*75, adminDB)
 	out, err := exec.Command(initializeScript).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error exec.Command: %s %e", string(out), err)
