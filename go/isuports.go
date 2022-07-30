@@ -1263,8 +1263,13 @@ type PlayerScoreDetail struct {
 }
 
 type PlayerHandlerResult struct {
-	Player PlayerDetail        `json:"player"`
-	Scores []PlayerScoreDetail `json:"scores"`
+	Player PlayerDetail           `json:"player"`
+	Scores []PlayerScoreRowPlayer `json:"scores"`
+}
+
+type PlayerScoreRowPlayer struct {
+	CompetitionTitle string `db:"title" json:"competition_title"`
+	Score            int64  `db:"score" json:"score"`
 }
 
 // 参加者向けAPI
@@ -1302,15 +1307,15 @@ func playerHandler(c echo.Context) error {
 		}
 		return fmt.Errorf("error retrievePlayer: %w", err)
 	}
-	cs := []CompetitionRow{}
-	if err := tenantDB.SelectContext(
-		ctx,
-		&cs,
-		"SELECT * FROM competition WHERE tenant_id = ? ORDER BY created_at ASC",
-		v.tenantID,
-	); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("error Select competition: %w", err)
-	}
+	// cs := []CompetitionRow{}
+	// if err := tenantDB.SelectContext(
+	// 	ctx,
+	// 	&cs,
+	// 	"SELECT * FROM competition WHERE tenant_id = ? ORDER BY created_at ASC",
+	// 	v.tenantID,
+	// ); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	// 	return fmt.Errorf("error Select competition: %w", err)
+	// }
 
 	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
 	stop := t.SubStart(ctx, "flockByTenantID(v.tenantID)")
@@ -1322,37 +1327,30 @@ func playerHandler(c echo.Context) error {
 	// }
 	stop()
 	// defer fl.Close()
-	pss := make([]PlayerScoreRow, 0, len(cs))
-	for _, c := range cs {
-		ps := PlayerScoreRow{}
-		if err := tenantDB.GetContext(
-			ctx,
-			&ps,
-			// 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
-			"SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? AND player_id = ? ORDER BY row_num DESC LIMIT 1",
-			v.tenantID,
-			c.ID,
-			p.ID,
-		); err != nil {
-			// 行がない = スコアが記録されてない
-			if errors.Is(err, sql.ErrNoRows) {
-				continue
-			}
-			return fmt.Errorf("error Select player_score: tenantID=%d, competitionID=%s, playerID=%s, %w", v.tenantID, c.ID, p.ID, err)
-		}
-		pss = append(pss, ps)
-	}
 
-	psds := make([]PlayerScoreDetail, 0, len(pss))
-	for _, ps := range pss {
-		comp, err := retrieveCompetition(ctx, tenantDB, ps.CompetitionID)
-		if err != nil {
-			return fmt.Errorf("error retrieveCompetition: %w", err)
-		}
-		psds = append(psds, PlayerScoreDetail{
-			CompetitionTitle: comp.Title,
-			Score:            ps.Score,
-		})
+	pss := make([]PlayerScoreRowPlayer, 0)
+	if err := tenantDB.SelectContext(
+		ctx,
+		&pss,
+		// 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
+		`SELECT player_score.score, competition.title FROM player_score INNER JOIN (
+			SELECT competition_id, max(row_num) AS row_num FROM player_score WHERE tenant_id = ? AND player_id = ? GROUP BY competition_id
+		) AS c ON (
+			player_score.row_num = c.row_num
+			AND player_score.competition_id = c.competition_id
+			AND player_score.tenant_id = ? AND player_score.player_id = ?
+		)
+		INNER JOIN competition ON (
+			competition.id = player_score.competition_id
+		)
+		ORDER BY competition.created_at ASC
+		`,
+		v.tenantID,
+		p.ID,
+		v.tenantID,
+		p.ID,
+	); err != nil {
+		return fmt.Errorf("error Select player_score: tenantID=%d, playerID=%s, %w", v.tenantID, p.ID, err)
 	}
 
 	res := SuccessResult{
@@ -1363,10 +1361,57 @@ func playerHandler(c echo.Context) error {
 				DisplayName:    p.DisplayName,
 				IsDisqualified: p.IsDisqualified,
 			},
-			Scores: psds,
+			Scores: pss,
 		},
 	}
 	return c.JSON(http.StatusOK, res)
+	/*
+		pss := make([]PlayerScoreRow, 0, len(cs))
+		for _, c := range cs {
+			ps := PlayerScoreRow{}
+			if err := tenantDB.GetContext(
+				ctx,
+				&ps,
+				// 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
+				"SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? AND player_id = ? ORDER BY row_num DESC LIMIT 1",
+				v.tenantID,
+				c.ID,
+				p.ID,
+			); err != nil {
+				// 行がない = スコアが記録されてない
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return fmt.Errorf("error Select player_score: tenantID=%d, competitionID=%s, playerID=%s, %w", v.tenantID, c.ID, p.ID, err)
+			}
+			pss = append(pss, ps)
+		}
+
+		psds := make([]PlayerScoreDetail, 0, len(pss))
+		for _, ps := range pss {
+			comp, err := retrieveCompetition(ctx, tenantDB, ps.CompetitionID)
+			if err != nil {
+				return fmt.Errorf("error retrieveCompetition: %w", err)
+			}
+			psds = append(psds, PlayerScoreDetail{
+				CompetitionTitle: comp.Title,
+				Score:            ps.Score,
+			})
+		}
+
+		res := SuccessResult{
+			Status: true,
+			Data: PlayerHandlerResult{
+				Player: PlayerDetail{
+					ID:             p.ID,
+					DisplayName:    p.DisplayName,
+					IsDisqualified: p.IsDisqualified,
+				},
+				Scores: psds,
+			},
+		}
+		return c.JSON(http.StatusOK, res)
+	*/
 }
 
 type CompetitionRank struct {
