@@ -93,7 +93,9 @@ func connectToTenantDB(id int64) (*sqlx.DB, error) {
 		return nil, fmt.Errorf("failed to open tenant DB: %w", err)
 	}
 	db.DB = t.DB(fmt.Sprintf("file:%s?mode=rw", p), db.Driver())
-
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(time.Second * 10)
 	return db, nil
 }
 
