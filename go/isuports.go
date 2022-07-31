@@ -453,11 +453,14 @@ type CompetitionRow struct {
 
 // 大会を取得する
 func retrieveCompetition(ctx context.Context, tenantDB dbOrTx, id string) (*CompetitionRow, error) {
-	var c CompetitionRow
-	if err := tenantDB.GetContext(ctx, &c, "SELECT * FROM competition WHERE id = ?", id); err != nil {
-		return nil, fmt.Errorf("error Select competition: id=%s, %w", id, err)
-	}
-	return &c, nil
+	c, err := competitionCache.GetOrSet(id, func() (CompetitionRow, error) {
+		var c CompetitionRow
+		if err := tenantDB.GetContext(ctx, &c, "SELECT * FROM competition WHERE id = ?", id); err != nil {
+			return c, fmt.Errorf("error Select competition: id=%s, %w", id, err)
+		}
+		return c, nil
+	})
+	return &c, err
 }
 
 type PlayerScoreRow struct {
@@ -1131,6 +1134,14 @@ func competitionsAddHandler(c echo.Context) error {
 			id, v.tenantID, title, now, now, err,
 		)
 	}
+	competitionCache.Set(id, CompetitionRow{
+		TenantID:   v.tenantID,
+		ID:         id,
+		Title:      title,
+		FinishedAt: sql.NullInt64{},
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	})
 
 	res := CompetitionsAddHandlerResult{
 		Competition: CompetitionDetail{
@@ -1187,6 +1198,12 @@ func competitionFinishHandler(c echo.Context) error {
 			now, now, id, err,
 		)
 	}
+	competitionCache.Update(id, func(current CompetitionRow) CompetitionRow {
+		current.FinishedAt = sql.NullInt64{Valid: true, Int64: now}
+		current.UpdatedAt = now
+		return current
+	})
+
 	comp.FinishedAt = sql.NullInt64{Valid: true, Int64: now}
 	comp.UpdatedAt = now
 	report, err := billingReportByCompetition(ctx, tenantDB, v.tenantID, comp)
@@ -2194,6 +2211,8 @@ func initializeHandler2(c echo.Context) error {
 
 	rankingCache = cache.New[string, []CompetitionRank](1000)
 
+	competitionCache = cache.New[string, CompetitionRow](1000)
+
 	res := InitializeHandlerResult{
 		Lang: "go",
 	}
@@ -2204,6 +2223,8 @@ var tenantIDCache = cache.New[int64, TenantRow](200)
 var tenantNameCache = cache.New[string, TenantRow](200)
 
 var rankingCache = cache.New[string, []CompetitionRank](1000)
+
+var competitionCache = cache.New[string, CompetitionRow](1000)
 
 var ownHost = getEnv("WOEKER_ADDR", "")
 
