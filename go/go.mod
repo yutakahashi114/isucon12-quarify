@@ -17,6 +17,7 @@ require (
 	github.com/simukti/sqldb-logger v0.0.0-20220521163925-faf2f2be0eb6
 	goji.io v2.0.2+incompatible
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 )
 
 require (
