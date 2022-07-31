@@ -562,7 +562,7 @@ func tenantsAddHandler(c echo.Context) error {
 		return fmt.Errorf("error get LastInsertId: %w", err)
 	}
 
-	switch v.tenantID % 5 {
+	switch id % 5 {
 	case 1:
 		if err := createTenantDB(id); err != nil {
 			return fmt.Errorf("error createTenantDB: id=%d name=%s %w", id, name, err)
