@@ -2181,7 +2181,7 @@ func initializeHandler(c echo.Context) error {
 	competitionCache = cache.New[string, CompetitionRow](1000)
 
 	playerCache = cache.New[string, PlayerRow](10000)
-	updateStop(40 * time.Second)
+	updateStop(50 * time.Second)
 
 	{
 		req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodPost, "http://192.168.0.12:3000/initialize2", nil)
@@ -2279,7 +2279,7 @@ func initializeHandler2(c echo.Context) error {
 	playerCache = cache.New[string, PlayerRow](10000)
 
 	playerScoreCache = cache.New[string, []PlayerScoreRowPlayer](10000)
-	updateStop(40 * time.Second)
+	updateStop(50 * time.Second)
 	res := InitializeHandlerResult{
 		Lang: "go",
 	}
