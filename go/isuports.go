@@ -2204,7 +2204,7 @@ func Proxy(c echo.Context, v *Viewer) bool {
 		return false
 	case 2, 3:
 		host = "192.168.0.12:3000"
-	case 4:
+	case 0:
 		host = "192.168.0.13:3000"
 	}
 
