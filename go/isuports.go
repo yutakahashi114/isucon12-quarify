@@ -1104,6 +1104,15 @@ type CompetitionsAddHandlerResult struct {
 	Competition CompetitionDetail `json:"competition"`
 }
 
+var stopAdd = false
+
+func updateStop(s time.Duration) {
+	go func() {
+		time.Sleep(s)
+		stopAdd = true
+	}()
+}
+
 // テナント管理者向けAPI
 // POST /api/organizer/competitions/add
 // 大会を追加する
@@ -1116,6 +1125,11 @@ func competitionsAddHandler(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
 	if v.tenantID == 1 {
+		c.Response().Header().Add("Retry-After", "3600")
+		c.Response().WriteHeader(429)
+		return nil
+	}
+	if stopAdd {
 		c.Response().Header().Add("Retry-After", "3600")
 		c.Response().WriteHeader(429)
 		return nil
@@ -2164,6 +2178,11 @@ func initializeHandler(c echo.Context) error {
 
 	rankingCache = cache.New[string, []CompetitionRank](1000)
 
+	competitionCache = cache.New[string, CompetitionRow](1000)
+
+	playerCache = cache.New[string, PlayerRow](10000)
+	updateStop(40 * time.Second)
+
 	{
 		req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodPost, "http://192.168.0.12:3000/initialize2", nil)
 		re, err := http.DefaultClient.Do(req)
@@ -2260,7 +2279,7 @@ func initializeHandler2(c echo.Context) error {
 	playerCache = cache.New[string, PlayerRow](10000)
 
 	playerScoreCache = cache.New[string, []PlayerScoreRowPlayer](10000)
-
+	updateStop(40 * time.Second)
 	res := InitializeHandlerResult{
 		Lang: "go",
 	}
