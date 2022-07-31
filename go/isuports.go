@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -2198,6 +2199,21 @@ var rankingCache = cache.New[string, []CompetitionRank](1000)
 
 var ownHost = getEnv("WOEKER_ADDR", "")
 
+var tr = &http.Transport{
+	DialContext: (&net.Dialer{
+		Timeout:   60 * time.Second,
+		KeepAlive: 60 * time.Second,
+		DualStack: true,
+	}).DialContext,
+	ForceAttemptHTTP2:     true,
+	TLSHandshakeTimeout:   10 * time.Second,
+	ResponseHeaderTimeout: 10 * time.Second,
+	ExpectContinueTimeout: 1 * time.Second,
+	MaxIdleConns:          100,
+	MaxIdleConnsPerHost:   100,
+	IdleConnTimeout:       120 * time.Second,
+}
+
 func Proxy(c echo.Context, v *Viewer) bool {
 	// 最初に"192.168.0.11"にリゥエストする
 	// それ以外はプロキシされたところ
@@ -2223,6 +2239,7 @@ func Proxy(c echo.Context, v *Viewer) bool {
 				req.Header.Set("User-Agent", "")
 			}
 		},
+		Transport: tr,
 	}
 	rp.ServeHTTP(c.Response(), c.Request())
 	return true
