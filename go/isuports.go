@@ -1680,13 +1680,12 @@ func playerHandler(c echo.Context) error {
 		return c.JSON(http.StatusOK, res)
 	}
 
-	pss, err, _ := playerHandlersfg.Do(p.ID, func() (interface{}, error) {
-		pss := make([]PlayerScoreRowPlayer, 0)
-		if err := tenantDB.SelectContext(
-			ctx,
-			&pss,
-			// 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
-			`SELECT player_score.score, competition.title, competition.created_at, competition.id FROM player_score INNER JOIN (
+	pss := make([]PlayerScoreRowPlayer, 0)
+	if err := tenantDB.SelectContext(
+		ctx,
+		&pss,
+		// 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
+		`SELECT player_score.score, competition.title, competition.created_at, competition.id FROM player_score INNER JOIN (
 				SELECT competition_id, max(row_num) AS row_num FROM player_score WHERE tenant_id = ? AND player_id = ? GROUP BY competition_id
 			) AS c ON (
 				player_score.row_num = c.row_num
@@ -1698,19 +1697,14 @@ func playerHandler(c echo.Context) error {
 			)
 			ORDER BY competition.created_at ASC
 			`,
-			v.tenantID,
-			p.ID,
-			v.tenantID,
-			p.ID,
-		); err != nil {
-			return nil, fmt.Errorf("error Select player_score: tenantID=%d, playerID=%s, %w", v.tenantID, p.ID, err)
-		}
-		playerScoreCache.Set(p.ID, pss)
-		return pss, nil
-	})
-	if err != nil {
+		v.tenantID,
+		p.ID,
+		v.tenantID,
+		p.ID,
+	); err != nil {
 		return fmt.Errorf("error Select player_score: tenantID=%d, playerID=%s, %w", v.tenantID, p.ID, err)
 	}
+	playerScoreCache.Set(p.ID, pss)
 	res := SuccessResult{
 		Status: true,
 		Data: PlayerHandlerResult{
@@ -1719,7 +1713,7 @@ func playerHandler(c echo.Context) error {
 				DisplayName:    p.DisplayName,
 				IsDisqualified: p.IsDisqualified,
 			},
-			Scores: pss.([]PlayerScoreRowPlayer),
+			Scores: pss,
 		},
 	}
 	return c.JSON(http.StatusOK, res)
