@@ -1754,10 +1754,17 @@ func competitionRankingHandler(c echo.Context) error {
 	}
 
 	now := time.Now().Unix()
-	var tenant TenantRow
-	if err := adminDB.GetContext(ctx, &tenant, "SELECT * FROM tenant WHERE id = ?", v.tenantID); err != nil {
-		return fmt.Errorf("error Select tenant: id=%d, %w", v.tenantID, err)
+	tenant, err := tenantIDCache.GetOrSet(v.tenantID, func() (TenantRow, error) {
+		var tenant TenantRow
+		if err := adminDB.GetContext(ctx, &tenant, "SELECT * FROM tenant WHERE id = ?", v.tenantID); err != nil {
+			return tenant, fmt.Errorf("error Select tenant: id=%d, %w", v.tenantID, err)
+		}
+		return tenant, nil
+	})
+	if err != nil {
+		return err
 	}
+	tenantNameCache.Set(tenant.Name, tenant)
 
 	// vh := VisitHistoryRow{}
 	// if err := adminDB.GetContext(
