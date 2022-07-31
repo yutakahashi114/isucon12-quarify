@@ -220,8 +220,8 @@ func Run() {
 		return
 	}
 	adminDB.DB = t.DB(connectAdminDBDSN(), adminDB.Driver())
-	adminDB.SetMaxOpenConns(50)
-	adminDB.SetMaxIdleConns(50)
+	adminDB.SetMaxOpenConns(150)
+	adminDB.SetMaxIdleConns(150)
 	adminDB.SetConnMaxLifetime(time.Second * 90)
 	defer adminDB.Close()
 

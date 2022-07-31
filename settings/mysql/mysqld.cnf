@@ -87,4 +87,4 @@ general_log_file       = /var/log/mysql/general.log
 
 disable-log-bin
 
-max_connections        = 151
+max_connections        = 451
