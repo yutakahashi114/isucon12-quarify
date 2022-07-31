@@ -1344,7 +1344,7 @@ func competitionScoreHandler(c echo.Context) error {
 			RowNum:            rowNum,
 		}
 	}
-	ranks := make([]CompetitionRank, len(scoredPlayerSet))
+	ranks := make([]CompetitionRank, 0, len(scoredPlayerSet))
 	for _, r := range scoredPlayerSet {
 		ranks = append(ranks, r)
 	}
