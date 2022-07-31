@@ -1423,7 +1423,7 @@ func billingHandler(c echo.Context) error {
 	bs := []BillingRow{}
 	if err := adminDB.SelectContext(
 		ctx,
-		&cs,
+		&bs,
 		"SELECT * FROM billing WHERE tenant_id=?",
 		v.tenantID,
 	); err != nil {
