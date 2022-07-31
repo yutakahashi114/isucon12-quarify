@@ -1421,7 +1421,9 @@ func competitionScoreHandler(c echo.Context) error {
 	tx.Commit()
 	key := fmt.Sprintf("tenantID:%v:competitionID:%v", v.tenantID, competitionID)
 	rankingCache.Set(key, pagedRanks)
-
+	for _, rank := range ranks {
+		rankingCache.Delete(rank.PlayerID)
+	}
 	// for _, ps := range playerScoreRows {
 	// 	if _, err := tenantDB.NamedExecContext(
 	// 		ctx,
@@ -1608,6 +1610,20 @@ func playerHandler(c echo.Context) error {
 	// // }
 	// stop()
 	// defer fl.Close()
+	if ps, ok := playerScoreCache.Get(p.ID); ok {
+		res := SuccessResult{
+			Status: true,
+			Data: PlayerHandlerResult{
+				Player: PlayerDetail{
+					ID:             p.ID,
+					DisplayName:    p.DisplayName,
+					IsDisqualified: p.IsDisqualified,
+				},
+				Scores: ps,
+			},
+		}
+		return c.JSON(http.StatusOK, res)
+	}
 
 	pss := make([]PlayerScoreRowPlayer, 0)
 	if err := tenantDB.SelectContext(
@@ -1633,7 +1649,7 @@ func playerHandler(c echo.Context) error {
 	); err != nil {
 		return fmt.Errorf("error Select player_score: tenantID=%d, playerID=%s, %w", v.tenantID, p.ID, err)
 	}
-
+	playerScoreCache.Set(p.ID, pss)
 	res := SuccessResult{
 		Status: true,
 		Data: PlayerHandlerResult{
@@ -2234,6 +2250,8 @@ func initializeHandler2(c echo.Context) error {
 
 	playerCache = cache.New[string, PlayerRow](10000)
 
+	playerScoreCache = cache.New[string, []PlayerScoreRowPlayer](10000)
+
 	res := InitializeHandlerResult{
 		Lang: "go",
 	}
@@ -2248,6 +2266,8 @@ var rankingCache = cache.New[string, []CompetitionRank](1000)
 var competitionCache = cache.New[string, CompetitionRow](1000)
 
 var playerCache = cache.New[string, PlayerRow](10000)
+
+var playerScoreCache = cache.New[string, []PlayerScoreRowPlayer](10000)
 
 var ownHost = getEnv("WOEKER_ADDR", "")
 
