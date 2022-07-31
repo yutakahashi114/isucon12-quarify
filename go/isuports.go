@@ -1188,6 +1188,8 @@ func competitionFinishHandler(c echo.Context) error {
 			now, now, id, err,
 		)
 	}
+	comp.FinishedAt = sql.NullInt64{Valid: true, Int64: now}
+	comp.UpdatedAt = now
 	report, err := billingReportByCompetition(ctx, tenantDB, v.tenantID, comp)
 	if err != nil {
 		return fmt.Errorf("failed to billingReportByCompetition: %w", err)
