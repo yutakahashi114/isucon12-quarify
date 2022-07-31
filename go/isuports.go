@@ -267,11 +267,30 @@ type Viewer struct {
 	tenantID   int64
 }
 
+func (v *Viewer) String() string {
+	b := strings.Builder{}
+	b.Grow(len(v.role) + len(v.playerID) + len(v.tenantName) + 10)
+	b.WriteString(v.role)
+	b.WriteString(":")
+	b.WriteString(v.playerID)
+	b.WriteString(":")
+	b.WriteString(v.tenantName)
+	b.WriteString(":")
+	b.WriteString(strconv.Itoa(int(v.tenantID)))
+	return b.String()
+}
+
 // リクエストヘッダをパースしてViewerを返す
 func parseViewer(c echo.Context) (*Viewer, error) {
-	if b := c.Request().Header.Get("X-Viewer"); b != "" {
-		v := &Viewer{}
-		return v.Decode([]byte(b))
+	if b := c.Request().Header.Get("Viewer"); b != "" {
+		ss := strings.Split(b, ":")
+		id, _ := strconv.Atoi(ss[3])
+		return &Viewer{
+			role:       ss[0],
+			playerID:   ss[1],
+			tenantName: ss[2],
+			tenantID:   int64(id),
+		}, nil
 	}
 
 	cookie, err := c.Request().Cookie(cookieName)
@@ -2374,7 +2393,6 @@ func Proxy(c echo.Context, v *Viewer) bool {
 	case 0:
 		host = "192.168.0.13:3000"
 	}
-	b, _ := v.Encode()
 	rp := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req.URL.Scheme = "http"
@@ -2385,11 +2403,11 @@ func Proxy(c echo.Context, v *Viewer) bool {
 				req.Header.Set("User-Agent", "")
 			}
 
-			req.Header.Set("X-Viewer", string(b))
+			req.Header.Set("Viewer", v.String())
 		},
 		Transport: tr,
 		ModifyResponse: func(res *http.Response) error {
-			res.Header.Del("X-Viewer")
+			res.Header.Del("Viewer")
 			return nil
 		},
 	}
