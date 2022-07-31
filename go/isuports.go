@@ -2192,18 +2192,20 @@ var tr = &http.Transport{
 }
 
 func Proxy(c echo.Context, v *Viewer) bool {
-	// 最初に"192.168.0.11"にリゥエストする
-	// それ以外はプロキシされたところ
+	// 最初に 192.168.0.11 にリゥエストする
+	// それ以外はプロキシ先なのでそのまま処理する
 	if ownHost != "192.168.0.11" {
 		return false
 	}
 
-	host := "192.168.0.13:3000"
-	if v.tenantID%3 == 1 {
+	host := ""
+	switch v.tenantID % 4 {
+	case 1:
 		return false
-	}
-	if v.tenantID%3 == 2 {
+	case 2, 3:
 		host = "192.168.0.12:3000"
+	case 4:
+		host = "192.168.0.13:3000"
 	}
 
 	rp := &httputil.ReverseProxy{
