@@ -1422,7 +1422,7 @@ func competitionScoreHandler(c echo.Context) error {
 	key := fmt.Sprintf("tenantID:%v:competitionID:%v", v.tenantID, competitionID)
 	rankingCache.Set(key, pagedRanks)
 	for _, rank := range ranks {
-		rankingCache.Delete(rank.PlayerID)
+		playerScoreCache.Delete(rank.PlayerID)
 	}
 	// for _, ps := range playerScoreRows {
 	// 	if _, err := tenantDB.NamedExecContext(
