@@ -186,7 +186,6 @@ func Run() {
 	e.POST("/api/admin/tenants/add", tenantsAddHandler)
 	e.POST("/api/admin/tenants/add2/:tenant_id", tenantsAddHandler2)
 	e.GET("/api/admin/tenants/billing", tenantsBillingHandler)
-	e.GET("/api/admin/tenants/billing2/:tenant_id", tenantsBillingHandler2)
 
 	// テナント管理者向けAPI - 参加者追加、一覧、失格
 	e.GET("/api/organizer/players", playersListHandler)
@@ -410,9 +409,9 @@ type dbOrTx interface {
 
 type PlayerRow struct {
 	TenantID       int64  `db:"tenant_id"`
-	ID             string `db:"id"`
-	DisplayName    string `db:"display_name"`
-	IsDisqualified bool   `db:"is_disqualified"`
+	ID             string `db:"id" json:"id"`
+	DisplayName    string `db:"display_name" json:"display_name"`
+	IsDisqualified bool   `db:"is_disqualified" json:"is_disqualified"`
 	CreatedAt      int64  `db:"created_at"`
 	UpdatedAt      int64  `db:"updated_at"`
 }
@@ -886,42 +885,6 @@ func tenantsBillingHandler(c echo.Context) error {
 	*/
 }
 
-// SaaS管理者用API
-// テナントごとの課金レポートを最大10件、テナントのid降順で取得する
-// GET /api/admin/tenants/billing2
-// URL引数beforeを指定した場合、指定した値よりもidが小さいテナントの課金レポートを取得する
-func tenantsBillingHandler2(c echo.Context) error {
-	tenantID := c.Param("tenant_id")
-	tid, _ := strconv.ParseInt(tenantID, 10, 64)
-	ctx := c.Request().Context()
-
-	tb := TenantWithBilling{
-		ID: tenantID,
-	}
-	tenantDB, err := connectToTenantDB(tid)
-	if err != nil {
-		return fmt.Errorf("failed to connectToTenantDB: %w", err)
-	}
-	defer tenantDB.Close()
-	cs := []CompetitionRow{}
-	if err := tenantDB.SelectContext(
-		ctx,
-		&cs,
-		"SELECT * FROM competition WHERE tenant_id=?",
-		tid,
-	); err != nil {
-		return fmt.Errorf("failed to Select competition: %w", err)
-	}
-	for _, comp := range cs {
-		report, err := billingReportByCompetition(ctx, tenantDB, tid, &comp)
-		if err != nil {
-			return fmt.Errorf("failed to billingReportByCompetition: %w", err)
-		}
-		tb.BillingYen += report.BillingYen
-	}
-	return c.JSON(http.StatusOK, tb)
-}
-
 type PlayerDetail struct {
 	ID             string `json:"id"`
 	DisplayName    string `json:"display_name"`
@@ -978,7 +941,7 @@ func playersListHandler(c echo.Context) error {
 }
 
 type PlayersAddHandlerResult struct {
-	Players []PlayerDetail `json:"players"`
+	Players []PlayerRow `json:"players"`
 }
 
 // テナント管理者向けAPI
@@ -1008,7 +971,7 @@ func playersAddHandler(c echo.Context) error {
 	}
 	displayNames := params["display_name[]"]
 
-	pds := make([]PlayerDetail, 0, len(displayNames))
+	pds := make([]PlayerRow, 0, len(displayNames))
 	for _, displayName := range displayNames {
 		id, err := dispenseID(ctx)
 		if err != nil {
@@ -1016,27 +979,41 @@ func playersAddHandler(c echo.Context) error {
 		}
 
 		now := time.Now().Unix()
-		if _, err := tenantDB.ExecContext(
-			ctx,
-			"INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-			id, v.tenantID, displayName, false, now, now,
-		); err != nil {
-			return fmt.Errorf(
-				"error Insert player at tenantDB: id=%s, displayName=%s, isDisqualified=%t, createdAt=%d, updatedAt=%d, %w",
-				id, displayName, false, now, now, err,
-			)
-		}
-		p, err := retrievePlayer(ctx, tenantDB, id)
-		if err != nil {
-			return fmt.Errorf("error retrievePlayer: %w", err)
-		}
-		pds = append(pds, PlayerDetail{
-			ID:             p.ID,
-			DisplayName:    p.DisplayName,
-			IsDisqualified: p.IsDisqualified,
+		/*
+			if _, err := tenantDB.ExecContext(
+				ctx,
+				"INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+				id, v.tenantID, displayName, false, now, now,
+			); err != nil {
+				return fmt.Errorf(
+					"error Insert player at tenantDB: id=%s, displayName=%s, isDisqualified=%t, createdAt=%d, updatedAt=%d, %w",
+					id, displayName, false, now, now, err,
+				)
+			}
+			p, err := retrievePlayer(ctx, tenantDB, id)
+			if err != nil {
+				return fmt.Errorf("error retrievePlayer: %w", err)
+			}
+		*/
+		pds = append(pds, PlayerRow{
+			ID:             id,
+			TenantID:       v.tenantID,
+			DisplayName:    displayName,
+			IsDisqualified: false,
+			CreatedAt:      now,
+			UpdatedAt:      now,
 		})
 	}
-
+	if _, err := tenantDB.ExecContext(
+		ctx,
+		"INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (:id, :tenant_id, :display_name, :is_disqualified, :created_at, :updated_at)",
+		pds,
+	); err != nil {
+		return fmt.Errorf(
+			"error Insert player at tenantDB, %w",
+			err,
+		)
+	}
 	res := PlayersAddHandlerResult{
 		Players: pds,
 	}
