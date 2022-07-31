@@ -767,7 +767,7 @@ func tenantsBillingHandler(c echo.Context) error {
 				GROUP BY
 					tenant_id
 			) AS y
-		WHERE id <= ? ORDER BY id DESC LIMIT 10`,
+		WHERE id < ? ORDER BY id DESC LIMIT 10`,
 		beforeID,
 	); err != nil {
 		return fmt.Errorf("error Select tenant: %w", err)
