@@ -2265,12 +2265,12 @@ func Proxy(c echo.Context, v *Viewer) bool {
 	if ownHost != "192.168.0.11" {
 		return false
 	}
-
-	host := ""
-	switch v.tenantID % 4 {
-	case 1:
+	if v.tenantID == 1 {
 		return false
-	case 2, 3:
+	}
+	host := ""
+	switch v.tenantID % 3 {
+	case 1, 2:
 		host = "192.168.0.12:3000"
 	case 0:
 		host = "192.168.0.13:3000"
