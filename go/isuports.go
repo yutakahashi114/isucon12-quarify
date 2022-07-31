@@ -31,6 +31,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -1289,6 +1290,7 @@ func competitionScoreHandler(c echo.Context) error {
 	// defer fl.Close()
 	var rowNum int64
 	playerScoreRows := []PlayerScoreRow{}
+	scoredPlayerSet := make(map[string]CompetitionRank)
 	for {
 		rowNum++
 		row, err := r.Read()
@@ -1302,7 +1304,8 @@ func competitionScoreHandler(c echo.Context) error {
 			return fmt.Errorf("row must have two columns: %#v", row)
 		}
 		playerID, scoreStr := row[0], row[1]
-		if _, err := retrievePlayer(ctx, tenantDB, playerID); err != nil {
+		var p *PlayerRow
+		if p, err = retrievePlayer(ctx, tenantDB, playerID); err != nil {
 			// 存在しない参加者が含まれている
 			if errors.Is(err, sql.ErrNoRows) {
 				return echo.NewHTTPError(
@@ -1334,6 +1337,32 @@ func competitionScoreHandler(c echo.Context) error {
 			CreatedAt:     now,
 			UpdatedAt:     now,
 		})
+		scoredPlayerSet[playerID] = CompetitionRank{
+			Score:             score,
+			PlayerID:          playerID,
+			PlayerDisplayName: p.DisplayName,
+			RowNum:            rowNum,
+		}
+	}
+	ranks := make([]CompetitionRank, len(scoredPlayerSet))
+	for _, r := range scoredPlayerSet {
+		ranks = append(ranks, r)
+	}
+	slices.SortFunc(ranks, func(a, b CompetitionRank) bool {
+		if a.Score == b.Score {
+			return a.RowNum < b.RowNum
+		}
+		return a.Score > b.Score
+	})
+
+	pagedRanks := make([]CompetitionRank, 0, len(ranks))
+	for i, rank := range ranks {
+		pagedRanks = append(pagedRanks, CompetitionRank{
+			Rank:              int64(i + 1),
+			Score:             rank.Score,
+			PlayerID:          rank.PlayerID,
+			PlayerDisplayName: rank.PlayerDisplayName,
+		})
 	}
 
 	tx, err := tenantDB.BeginTxx(ctx, nil)
@@ -1362,7 +1391,7 @@ func competitionScoreHandler(c echo.Context) error {
 	}
 	tx.Commit()
 	key := fmt.Sprintf("tenantID:%v:competitionID:%v", v.tenantID, competitionID)
-	rankingCache.Delete(key)
+	rankingCache.Set(key, pagedRanks)
 
 	// for _, ps := range playerScoreRows {
 	// 	if _, err := tenantDB.NamedExecContext(
