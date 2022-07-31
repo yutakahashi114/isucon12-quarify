@@ -269,7 +269,7 @@ type Viewer struct {
 
 // リクエストヘッダをパースしてViewerを返す
 func parseViewer(c echo.Context) (*Viewer, error) {
-	if b := c.Request().Header.Get("Viewer"); b != "" {
+	if b := c.Request().Header.Get("X-Viewer"); b != "" {
 		v := &Viewer{}
 		return v.Decode([]byte(b))
 	}
@@ -2385,11 +2385,11 @@ func Proxy(c echo.Context, v *Viewer) bool {
 				req.Header.Set("User-Agent", "")
 			}
 
-			req.Header.Set("Viewer", string(b))
+			req.Header.Set("X-Viewer", string(b))
 		},
 		Transport: tr,
 		ModifyResponse: func(res *http.Response) error {
-			res.Header.Del("Viewer")
+			res.Header.Del("X-Viewer")
 			return nil
 		},
 	}
