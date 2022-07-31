@@ -1421,22 +1421,22 @@ func competitionScoreHandler(c echo.Context) error {
 	}
 	tx.Commit()
 	key := fmt.Sprintf("tenantID:%v:competitionID:%v", v.tenantID, competitionID)
-	if prs, ok := rankingCache.Get(key); ok {
-		playerScoreCache.UpdateAll(func(m map[string][]PlayerScoreRowPlayer) map[string][]PlayerScoreRowPlayer {
-			for _, pr := range prs {
-				if _, ok := scoredPlayerSet[pr.PlayerID]; !ok {
-					// csvから消えてたら消す
-					for i, psrp := range m[pr.PlayerID] {
-						if psrp.CompetitionID == comp.ID {
-							m[pr.PlayerID] = append(m[pr.PlayerID][:i], m[pr.PlayerID][i+1:]...)
-							break
-						}
-					}
-				}
-			}
-			return m
-		})
-	}
+	// if prs, ok := rankingCache.Get(key); ok {
+	// 	playerScoreCache.UpdateAll(func(m map[string][]PlayerScoreRowPlayer) map[string][]PlayerScoreRowPlayer {
+	// 		for _, pr := range prs {
+	// 			if _, ok := scoredPlayerSet[pr.PlayerID]; !ok {
+	// 				// csvから消えてたら消す
+	// 				for i, psrp := range m[pr.PlayerID] {
+	// 					if psrp.CompetitionID == comp.ID {
+	// 						m[pr.PlayerID] = append(m[pr.PlayerID][:i], m[pr.PlayerID][i+1:]...)
+	// 						break
+	// 					}
+	// 				}
+	// 			}
+	// 		}
+	// 		return m
+	// 	})
+	// }
 	rankingCache.Set(key, pagedRanks)
 	playerScoreCache.UpdateAll(func(m map[string][]PlayerScoreRowPlayer) map[string][]PlayerScoreRowPlayer {
 		for _, rank := range ranks {
