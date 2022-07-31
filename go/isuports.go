@@ -754,8 +754,27 @@ func tenantsBillingHandler(c echo.Context) error {
 		}
 	}
 	ts := []TenantWithBilling{}
-	if err := adminDB.SelectContext(ctx, &ts,
-		`SELECT tenant.id, tenant.name, tenant.display_name, y.yen
+	if beforeID == 0 {
+		if err := adminDB.SelectContext(ctx, &ts,
+			`SELECT tenant.id, tenant.name, tenant.display_name, y.yen
+		FROM tenant,
+			LATERAL (
+				SELECT
+					SUM(yen) AS yen
+				FROM
+					billing
+				WHERE
+					billing.tenant_id = tenant.id
+				GROUP BY
+					tenant_id
+			) AS y
+		ORDER BY id DESC LIMIT 10`,
+		); err != nil {
+			return fmt.Errorf("error Select tenant: %w", err)
+		}
+	} else {
+		if err := adminDB.SelectContext(ctx, &ts,
+			`SELECT tenant.id, tenant.name, tenant.display_name, y.yen
 		FROM tenant,
 			LATERAL (
 				SELECT
@@ -768,9 +787,10 @@ func tenantsBillingHandler(c echo.Context) error {
 					tenant_id
 			) AS y
 		WHERE id < ? ORDER BY id DESC LIMIT 10`,
-		beforeID,
-	); err != nil {
-		return fmt.Errorf("error Select tenant: %w", err)
+			beforeID,
+		); err != nil {
+			return fmt.Errorf("error Select tenant: %w", err)
+		}
 	}
 
 	return c.JSON(http.StatusOK, SuccessResult{
@@ -2064,7 +2084,7 @@ type InitializeHandlerResult struct {
 // ベンチマーカーが起動したときに最初に呼ぶ
 // データベースの初期化などが実行されるため、スキーマを変更した場合などは適宜改変すること
 func initializeHandler(c echo.Context) error {
-	t.Start(time.Second*75, adminDB)
+	t.Start(time.Second*85, adminDB)
 	out, err := exec.Command(initializeScript).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error exec.Command: %s %e", string(out), err)
@@ -2155,7 +2175,7 @@ type BillingRow struct {
 }
 
 func initializeHandler2(c echo.Context) error {
-	t.Start(time.Second*75, adminDB)
+	t.Start(time.Second*85, adminDB)
 	out, err := exec.Command(initializeScript).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error exec.Command: %s %e", string(out), err)
