@@ -2388,6 +2388,10 @@ func Proxy(c echo.Context, v *Viewer) bool {
 			req.Header.Set("Viewer", string(b))
 		},
 		Transport: tr,
+		ModifyResponse: func(res *http.Response) error {
+			res.Header.Del("Viewer")
+			return nil
+		},
 	}
 	rp.ServeHTTP(c.Response(), c.Request())
 	return true
