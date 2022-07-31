@@ -32,6 +32,12 @@ func (c *Cache[K, V]) Update(k K, fn func(current V) V) {
 	c.m.Unlock()
 }
 
+func (c *Cache[K, V]) UpdateAll(fn func(map[K]V) map[K]V) {
+	c.m.Lock()
+	c.valueMap = fn(c.valueMap)
+	c.m.Unlock()
+}
+
 func (c *Cache[K, V]) UpdateOrSet(k K, fn func(current V, exist bool) V) {
 	c.m.Lock()
 	current, ok := c.valueMap[k]

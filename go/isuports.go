@@ -1421,10 +1421,60 @@ func competitionScoreHandler(c echo.Context) error {
 	}
 	tx.Commit()
 	key := fmt.Sprintf("tenantID:%v:competitionID:%v", v.tenantID, competitionID)
-	rankingCache.Set(key, pagedRanks)
-	for _, rank := range ranks {
-		playerScoreCache.Delete(rank.PlayerID)
+	if prs, ok := rankingCache.Get(key); ok {
+		playerScoreCache.UpdateAll(func(m map[string][]PlayerScoreRowPlayer) map[string][]PlayerScoreRowPlayer {
+			for _, pr := range prs {
+				if _, ok := scoredPlayerSet[pr.PlayerID]; !ok {
+					// csvから消えてたら消す
+					for i, psrp := range m[pr.PlayerID] {
+						if psrp.CompetitionID == comp.ID {
+							m[pr.PlayerID] = append(m[pr.PlayerID][:i], m[pr.PlayerID][i+1:]...)
+							break
+						}
+					}
+				}
+			}
+			return m
+		})
 	}
+	rankingCache.Set(key, pagedRanks)
+	playerScoreCache.UpdateAll(func(m map[string][]PlayerScoreRowPlayer) map[string][]PlayerScoreRowPlayer {
+		for _, rank := range ranks {
+			if current, ok := m[rank.PlayerID]; ok {
+				p := PlayerScoreRowPlayer{
+					CompetitionTitle:     comp.Title,
+					CompetitionID:        comp.ID,
+					CompetitionCreatedAt: comp.CreatedAt,
+					Score:                rank.Score,
+				}
+				f := false
+				for i, psrp := range current {
+					if psrp.CompetitionID == comp.ID {
+						m[rank.PlayerID][i] = p
+						f = true
+						break
+					}
+				}
+				if f {
+					continue
+				}
+				idx := -1
+				for i, psrp := range current {
+					if psrp.CompetitionCreatedAt >= p.CompetitionCreatedAt {
+						idx = i
+						break
+					}
+				}
+				// 最新
+				if idx == -1 {
+					m[rank.PlayerID] = append(m[rank.PlayerID], p)
+					continue
+				}
+				m[rank.PlayerID] = append(append(m[rank.PlayerID][:idx], p), m[rank.PlayerID][idx:]...)
+			}
+		}
+		return m
+	})
 	// for _, ps := range playerScoreRows {
 	// 	if _, err := tenantDB.NamedExecContext(
 	// 		ctx,
@@ -1549,8 +1599,10 @@ type PlayerHandlerResult struct {
 }
 
 type PlayerScoreRowPlayer struct {
-	CompetitionTitle string `db:"title" json:"competition_title"`
-	Score            int64  `db:"score" json:"score"`
+	CompetitionTitle     string `db:"title" json:"competition_title"`
+	Score                int64  `db:"score" json:"score"`
+	CompetitionCreatedAt int64  `db:"created_at" json:"-"`
+	CompetitionID        string `db:"id" json:"-"`
 }
 
 var playerHandlersfg = singleflight.Group{}
@@ -1634,7 +1686,7 @@ func playerHandler(c echo.Context) error {
 			ctx,
 			&pss,
 			// 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
-			`SELECT player_score.score, competition.title FROM player_score INNER JOIN (
+			`SELECT player_score.score, competition.title, competition.created_at, competition.id FROM player_score INNER JOIN (
 				SELECT competition_id, max(row_num) AS row_num FROM player_score WHERE tenant_id = ? AND player_id = ? GROUP BY competition_id
 			) AS c ON (
 				player_score.row_num = c.row_num
@@ -2167,6 +2219,8 @@ func initializeHandler(c echo.Context) error {
 	competitionCache = cache.New[string, CompetitionRow](1000)
 
 	playerCache = cache.New[string, PlayerRow](10000)
+
+	playerScoreCache = cache.New[string, []PlayerScoreRowPlayer](10000)
 
 	{
 		req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodPost, "http://192.168.0.12:3000/initialize2", nil)
