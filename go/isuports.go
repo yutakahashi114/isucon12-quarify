@@ -561,6 +561,11 @@ func tenantsAddHandler(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("error get LastInsertId: %w", err)
 	}
+
+	if err := createTenantDB(id); err != nil {
+		return fmt.Errorf("error createTenantDB: id=%d name=%s %w", id, name, err)
+	}
+
 	{
 		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.12:3000/api/admin/tenants/add2/%v", id), nil)
 		re, err := http.DefaultClient.Do(req)
@@ -568,6 +573,7 @@ func tenantsAddHandler(c echo.Context) error {
 		io.ReadAll(re.Body)
 		re.Body.Close()
 	}
+
 	{
 		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.13:3000/api/admin/tenants/add2/%v", id), nil)
 		re, err := http.DefaultClient.Do(req)
@@ -575,13 +581,14 @@ func tenantsAddHandler(c echo.Context) error {
 		io.ReadAll(re.Body)
 		re.Body.Close()
 	}
-	// NOTE: 先にadminDBに書き込まれることでこのAPIの処理中に
-	//       /api/admin/tenants/billingにアクセスされるとエラーになりそう
-	//       ロックなどで対処したほうが良さそう
-	if err := createTenantDB(id); err != nil {
-		return fmt.Errorf("error createTenantDB: id=%d name=%s %w", id, name, err)
-	}
-
+	/*
+		// NOTE: 先にadminDBに書き込まれることでこのAPIの処理中に
+		//       /api/admin/tenants/billingにアクセスされるとエラーになりそう
+		//       ロックなどで対処したほうが良さそう
+		if err := createTenantDB(id); err != nil {
+			return fmt.Errorf("error createTenantDB: id=%d name=%s %w", id, name, err)
+		}
+	*/
 	res := TenantsAddHandlerResult{
 		Tenant: TenantWithBilling{
 			ID:          strconv.FormatInt(id, 10),
@@ -2354,10 +2361,10 @@ func Proxy(c echo.Context, v *Viewer) bool {
 	}
 
 	host := ""
-	switch v.tenantID % 4 {
+	switch v.tenantID % 5 {
 	case 1:
 		return false
-	case 2, 3:
+	case 2, 3, 4:
 		host = "192.168.0.12:3000"
 	case 0:
 		host = "192.168.0.13:3000"
