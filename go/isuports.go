@@ -421,11 +421,14 @@ type PlayerRow struct {
 
 // 参加者を取得する
 func retrievePlayer(ctx context.Context, tenantDB dbOrTx, id string) (*PlayerRow, error) {
-	var p PlayerRow
-	if err := tenantDB.GetContext(ctx, &p, "SELECT * FROM player WHERE id = ?", id); err != nil {
-		return nil, fmt.Errorf("error Select player: id=%s, %w", id, err)
-	}
-	return &p, nil
+	p, err := playerCache.GetOrSet(id, func() (PlayerRow, error) {
+		var p PlayerRow
+		if err := tenantDB.GetContext(ctx, &p, "SELECT * FROM player WHERE id = ?", id); err != nil {
+			return p, fmt.Errorf("error Select player: id=%s, %w", id, err)
+		}
+		return p, nil
+	})
+	return &p, err
 }
 
 // 参加者を認可する
@@ -1001,14 +1004,16 @@ func playersAddHandler(c echo.Context) error {
 				return fmt.Errorf("error retrievePlayer: %w", err)
 			}
 		*/
-		pds = append(pds, PlayerRow{
+		p := PlayerRow{
 			ID:             id,
 			TenantID:       v.tenantID,
 			DisplayName:    displayName,
 			IsDisqualified: false,
 			CreatedAt:      now,
 			UpdatedAt:      now,
-		})
+		}
+		pds = append(pds, p)
+		playerCache.Set(id, p)
 	}
 	if _, err := tenantDB.NamedExecContext(
 		ctx,
@@ -1064,6 +1069,11 @@ func playerDisqualifiedHandler(c echo.Context) error {
 			true, now, playerID, err,
 		)
 	}
+	playerCache.Update(playerID, func(current PlayerRow) PlayerRow {
+		current.IsDisqualified = true
+		current.UpdatedAt = now
+		return current
+	})
 	p, err := retrievePlayer(ctx, tenantDB, playerID)
 	if err != nil {
 		// 存在しないプレイヤー
@@ -2215,6 +2225,8 @@ func initializeHandler2(c echo.Context) error {
 
 	competitionCache = cache.New[string, CompetitionRow](1000)
 
+	playerCache = cache.New[string, PlayerRow](10000)
+
 	res := InitializeHandlerResult{
 		Lang: "go",
 	}
@@ -2227,6 +2239,8 @@ var tenantNameCache = cache.New[string, TenantRow](200)
 var rankingCache = cache.New[string, []CompetitionRank](1000)
 
 var competitionCache = cache.New[string, CompetitionRow](1000)
+
+var playerCache = cache.New[string, PlayerRow](10000)
 
 var ownHost = getEnv("WOEKER_ADDR", "")
 
