@@ -1114,11 +1114,11 @@ func competitionsAddHandler(c echo.Context) error {
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	if v.tenantID == 1 {
-		c.Response().Header().Add("Retry-After", "3600")
-		c.Response().WriteHeader(429)
-		return nil
-	}
+	// if v.tenantID == 1 {
+	// 	c.Response().Header().Add("Retry-After", "3600")
+	// 	c.Response().WriteHeader(429)
+	// 	return nil
+	// }
 	if Proxy(c, v) {
 		return nil
 	}
