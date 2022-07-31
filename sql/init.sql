@@ -16,3 +16,14 @@ ALTER TABLE id_generator AUTO_INCREMENT=2678400000;
 -- ) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4;
 
 -- INSERT INTO visit_history_2 SELECT player_id, tenant_id, competition_id, min(created_at) AS created_at, min(created_at) AS updated_at FROM visit_history GROUP BY `tenant_id`, `competition_id`, `player_id`
+
+DROP TABLE IF EXISTS `billing`;
+
+CREATE TABLE `billing` (
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
+  `competition_id` VARCHAR(255) NOT NULL,
+  `player` BIGINT NOT NULL,
+  `visitor` BIGINT NOT NULL,
+  `yen` BIGINT NOT NULL,
+  PRIMARY KEY (`tenant_id`, `competition_id`)
+) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4;

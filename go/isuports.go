@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/csv"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -632,11 +631,7 @@ type VisitHistorySummaryRow struct {
 }
 
 // 大会ごとの課金レポートを計算する
-func billingReportByCompetition(ctx context.Context, tenantDB dbOrTx, tenantID int64, competitonID string) (*BillingReport, error) {
-	comp, err := retrieveCompetition(ctx, tenantDB, competitonID)
-	if err != nil {
-		return nil, fmt.Errorf("error retrieveCompetition: %w", err)
-	}
+func billingReportByCompetition(ctx context.Context, tenantDB dbOrTx, tenantID int64, comp *CompetitionRow) (*BillingReport, error) {
 
 	// 大会が終了している場合のみ請求金額が確定するので計算する
 	if !comp.FinishedAt.Valid {
@@ -686,7 +681,7 @@ func billingReportByCompetition(ctx context.Context, tenantDB dbOrTx, tenantID i
 		"SELECT DISTINCT(player_id) FROM player_score WHERE tenant_id = ? AND competition_id = ?",
 		tenantID, comp.ID,
 	); err != nil && err != sql.ErrNoRows {
-		return nil, fmt.Errorf("error Select count player_score: tenantID=%d, competitionID=%s, %w", tenantID, competitonID, err)
+		return nil, fmt.Errorf("error Select count player_score: tenantID=%d, competitionID=%s, %w", tenantID, comp.ID, err)
 	}
 	for _, pid := range scoredPlayerIDs {
 		// スコアが登録されている参加者
@@ -717,10 +712,10 @@ func billingReportByCompetition(ctx context.Context, tenantDB dbOrTx, tenantID i
 }
 
 type TenantWithBilling struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	DisplayName string `json:"display_name"`
-	BillingYen  int64  `json:"billing"`
+	ID          string `db:"id" json:"id"`
+	Name        string `db:"name" json:"name"`
+	DisplayName string `db:"display_name" json:"display_name"`
+	BillingYen  int64  `db:"yen" json:"billing"`
 }
 
 type TenantsBillingHandlerResult struct {
@@ -758,88 +753,116 @@ func tenantsBillingHandler(c echo.Context) error {
 			)
 		}
 	}
+	ts := []TenantWithBilling{}
+	if err := adminDB.SelectContext(ctx, &ts,
+		`SELECT tenant.id, tenant.name, tenant.display_name, y.yen
+		FROM tenant,
+			LATERAL (
+				SELECT
+					SUM(yen) AS yen
+				FROM
+					billing
+				WHERE
+					billing.tenant_id = tenant.id
+				GROUP BY
+					tenant_id
+			) AS y
+		WHERE id > ? ORDER BY id DESC LIMIT 10`,
+		beforeID,
+	); err != nil {
+		return fmt.Errorf("error Select tenant: %w", err)
+	}
+
+	return c.JSON(http.StatusOK, SuccessResult{
+		Status: true,
+		Data: TenantsBillingHandlerResult{
+			Tenants: ts,
+		},
+	})
 	// テナントごとに
 	//   大会ごとに
 	//     scoreが登録されているplayer * 100
 	//     scoreが登録されていないplayerでアクセスした人 * 10
 	//   を合計したものを
 	// テナントの課金とする
-	ts := []TenantRow{}
-	if err := adminDB.SelectContext(ctx, &ts, "SELECT * FROM tenant ORDER BY id DESC"); err != nil {
-		return fmt.Errorf("error Select tenant: %w", err)
-	}
-	tenantBillings := make([]TenantWithBilling, 0, len(ts))
-	for _, t := range ts {
-		if beforeID != 0 && beforeID <= t.ID {
-			continue
+	/*
+		ts := []TenantRow{}
+		if err := adminDB.SelectContext(ctx, &ts, "SELECT * FROM tenant ORDER BY id DESC"); err != nil {
+			return fmt.Errorf("error Select tenant: %w", err)
 		}
-
-		if t.ID%3 != 1 {
-			host := "192.168.0.13:3000" // 0
-			if t.ID%3 == 2 {
-				host = "192.168.0.12:3000" // 2
+		tenantBillings := make([]TenantWithBilling, 0, len(ts))
+		for _, t := range ts {
+			if beforeID != 0 && beforeID <= t.ID {
+				continue
 			}
 
-			req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodGet, fmt.Sprintf("http://%v/api/admin/tenants/billing2/%v", host, t.ID), nil)
-			re, err := http.DefaultClient.Do(req)
+			if t.ID%3 != 1 {
+				host := "192.168.0.13:3000" // 0
+				if t.ID%3 == 2 {
+					host = "192.168.0.12:3000" // 2
+				}
+
+				req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodGet, fmt.Sprintf("http://%v/api/admin/tenants/billing2/%v", host, t.ID), nil)
+				re, err := http.DefaultClient.Do(req)
+				if err != nil {
+					return fmt.Errorf("failed to billing2: %w", err)
+				}
+				tb := TenantWithBilling{}
+				json.NewDecoder(re.Body).Decode(&tb)
+				re.Body.Close()
+				tb.Name = t.Name
+				tb.DisplayName = t.DisplayName
+
+				tenantBillings = append(tenantBillings, tb)
+				if len(tenantBillings) >= 10 {
+					break
+				}
+				continue
+			}
+			err := func(t TenantRow) error {
+				tb := TenantWithBilling{
+					ID:          strconv.FormatInt(t.ID, 10),
+					Name:        t.Name,
+					DisplayName: t.DisplayName,
+				}
+				tenantDB, err := connectToTenantDB(t.ID)
+				if err != nil {
+					return fmt.Errorf("failed to connectToTenantDB: %w", err)
+				}
+				defer tenantDB.Close()
+				cs := []CompetitionRow{}
+				if err := tenantDB.SelectContext(
+					ctx,
+					&cs,
+					"SELECT * FROM competition WHERE tenant_id=?",
+					t.ID,
+				); err != nil {
+					return fmt.Errorf("failed to Select competition: %w", err)
+				}
+				for _, comp := range cs {
+					report, err := billingReportByCompetition(ctx, tenantDB, t.ID, comp.ID)
+					if err != nil {
+						return fmt.Errorf("failed to billingReportByCompetition: %w", err)
+					}
+					tb.BillingYen += report.BillingYen
+				}
+				tenantBillings = append(tenantBillings, tb)
+				return nil
+			}(t)
 			if err != nil {
-				return fmt.Errorf("failed to billing2: %w", err)
+				return err
 			}
-			tb := TenantWithBilling{}
-			json.NewDecoder(re.Body).Decode(&tb)
-			re.Body.Close()
-			tb.Name = t.Name
-			tb.DisplayName = t.DisplayName
-
-			tenantBillings = append(tenantBillings, tb)
 			if len(tenantBillings) >= 10 {
 				break
 			}
-			continue
 		}
-		err := func(t TenantRow) error {
-			tb := TenantWithBilling{
-				ID:          strconv.FormatInt(t.ID, 10),
-				Name:        t.Name,
-				DisplayName: t.DisplayName,
-			}
-			tenantDB, err := connectToTenantDB(t.ID)
-			if err != nil {
-				return fmt.Errorf("failed to connectToTenantDB: %w", err)
-			}
-			defer tenantDB.Close()
-			cs := []CompetitionRow{}
-			if err := tenantDB.SelectContext(
-				ctx,
-				&cs,
-				"SELECT * FROM competition WHERE tenant_id=?",
-				t.ID,
-			); err != nil {
-				return fmt.Errorf("failed to Select competition: %w", err)
-			}
-			for _, comp := range cs {
-				report, err := billingReportByCompetition(ctx, tenantDB, t.ID, comp.ID)
-				if err != nil {
-					return fmt.Errorf("failed to billingReportByCompetition: %w", err)
-				}
-				tb.BillingYen += report.BillingYen
-			}
-			tenantBillings = append(tenantBillings, tb)
-			return nil
-		}(t)
-		if err != nil {
-			return err
-		}
-		if len(tenantBillings) >= 10 {
-			break
-		}
-	}
-	return c.JSON(http.StatusOK, SuccessResult{
-		Status: true,
-		Data: TenantsBillingHandlerResult{
-			Tenants: tenantBillings,
-		},
-	})
+		return c.JSON(http.StatusOK, SuccessResult{
+			Status: true,
+			Data: TenantsBillingHandlerResult{
+				Tenants: tenantBillings,
+			},
+		})
+	*/
 }
 
 // SaaS管理者用API
@@ -869,73 +892,13 @@ func tenantsBillingHandler2(c echo.Context) error {
 		return fmt.Errorf("failed to Select competition: %w", err)
 	}
 	for _, comp := range cs {
-		report, err := billingReportByCompetition(ctx, tenantDB, tid, comp.ID)
+		report, err := billingReportByCompetition(ctx, tenantDB, tid, &comp)
 		if err != nil {
 			return fmt.Errorf("failed to billingReportByCompetition: %w", err)
 		}
 		tb.BillingYen += report.BillingYen
 	}
 	return c.JSON(http.StatusOK, tb)
-}
-
-type TenantIDs struct {
-	IDs []int64
-}
-
-// SaaS管理者用API
-// テナントごとの課金レポートを最大10件、テナントのid降順で取得する
-// POST /api/admin/tenants/billing2
-// URL引数beforeを指定した場合、指定した値よりもidが小さいテナントの課金レポートを取得する
-func tenantsBillingHandler3(c echo.Context) error {
-	tids := TenantIDs{}
-	json.NewDecoder(c.Request().Body).Decode(&tids)
-	ctx := c.Request().Context()
-
-	tenantBillings := make([]TenantWithBilling, 0, len(tids.IDs))
-	for _, t := range tids.IDs {
-		err := func(t TenantRow) error {
-			tb := TenantWithBilling{
-				ID:          strconv.FormatInt(t.ID, 10),
-				Name:        t.Name,
-				DisplayName: t.DisplayName,
-			}
-			tenantDB, err := connectToTenantDB(t.ID)
-			if err != nil {
-				return fmt.Errorf("failed to connectToTenantDB: %w", err)
-			}
-			defer tenantDB.Close()
-			cs := []CompetitionRow{}
-			if err := tenantDB.SelectContext(
-				ctx,
-				&cs,
-				"SELECT * FROM competition WHERE tenant_id=?",
-				t.ID,
-			); err != nil {
-				return fmt.Errorf("failed to Select competition: %w", err)
-			}
-			for _, comp := range cs {
-				report, err := billingReportByCompetition(ctx, tenantDB, t.ID, comp.ID)
-				if err != nil {
-					return fmt.Errorf("failed to billingReportByCompetition: %w", err)
-				}
-				tb.BillingYen += report.BillingYen
-			}
-			tenantBillings = append(tenantBillings, tb)
-			return nil
-		}(TenantRow{ID: t})
-		if err != nil {
-			return err
-		}
-		if len(tenantBillings) >= 10 {
-			break
-		}
-	}
-	return c.JSON(http.StatusOK, SuccessResult{
-		Status: true,
-		Data: TenantsBillingHandlerResult{
-			Tenants: tenantBillings,
-		},
-	})
 }
 
 type PlayerDetail struct {
@@ -1205,7 +1168,7 @@ func competitionFinishHandler(c echo.Context) error {
 	if id == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "competition_id required")
 	}
-	_, err = retrieveCompetition(ctx, tenantDB, id)
+	comp, err := retrieveCompetition(ctx, tenantDB, id)
 	if err != nil {
 		// 存在しない大会
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1225,6 +1188,27 @@ func competitionFinishHandler(c echo.Context) error {
 			now, now, id, err,
 		)
 	}
+	report, err := billingReportByCompetition(ctx, tenantDB, v.tenantID, comp)
+	if err != nil {
+		return fmt.Errorf("failed to billingReportByCompetition: %w", err)
+	}
+	if _, err := adminDB.NamedExecContext(
+		ctx,
+		"INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (:tenant_id, :competition_id, :player, :visitor, :yen)",
+		BillingRow{
+			TenantID:      v.tenantID,
+			CompetitionID: id,
+			Player:        report.PlayerCount,
+			Visitor:       report.VisitorCount,
+			Yen:           report.BillingYen,
+		},
+	); err != nil {
+		return fmt.Errorf(
+			"error Insert billing, %w",
+			err,
+		)
+	}
+
 	return c.JSON(http.StatusOK, SuccessResult{Status: true})
 }
 
@@ -1435,13 +1419,35 @@ func billingHandler(c echo.Context) error {
 	); err != nil {
 		return fmt.Errorf("error Select competition: %w", err)
 	}
+
+	bs := []BillingRow{}
+	if err := tenantDB.SelectContext(
+		ctx,
+		&cs,
+		"SELECT * FROM billing WHERE tenant_id=?",
+		v.tenantID,
+	); err != nil {
+		return fmt.Errorf("error Select competition: %w", err)
+	}
+	bmap := make(map[string]BillingRow, len(bs))
+	for _, b := range bs {
+		bmap[b.CompetitionID] = b
+	}
+
 	tbrs := make([]BillingReport, 0, len(cs))
 	for _, comp := range cs {
-		report, err := billingReportByCompetition(ctx, tenantDB, v.tenantID, comp.ID)
-		if err != nil {
-			return fmt.Errorf("error billingReportByCompetition: %w", err)
+		report := BillingReport{
+			CompetitionID:    comp.ID,
+			CompetitionTitle: comp.Title,
 		}
-		tbrs = append(tbrs, *report)
+		if b, ok := bmap[comp.ID]; ok {
+			report.PlayerCount = b.Player
+			report.VisitorCount = b.Visitor
+			report.BillingPlayerYen = b.Player * 100
+			report.BillingVisitorYen = b.Visitor * 10
+			report.BillingYen = b.Yen
+		}
+		tbrs = append(tbrs, report)
 	}
 
 	res := SuccessResult{
@@ -1451,6 +1457,24 @@ func billingHandler(c echo.Context) error {
 		},
 	}
 	return c.JSON(http.StatusOK, res)
+	/*
+		tbrs := make([]BillingReport, 0, len(cs))
+		for _, comp := range cs {
+			report, err := billingReportByCompetition(ctx, tenantDB, v.tenantID, comp.ID)
+			if err != nil {
+				return fmt.Errorf("error billingReportByCompetition: %w", err)
+			}
+			tbrs = append(tbrs, *report)
+		}
+
+		res := SuccessResult{
+			Status: true,
+			Data: BillingHandlerResult{
+				Reports: tbrs,
+			},
+		}
+		return c.JSON(http.StatusOK, res)
+	*/
 }
 
 type PlayerScoreDetail struct {
@@ -2062,11 +2086,70 @@ func initializeHandler(c echo.Context) error {
 		io.ReadAll(re.Body)
 		re.Body.Close()
 	}
+	ctx := c.Request().Context()
+	ts := []TenantRow{}
+	if err := adminDB.SelectContext(ctx, &ts, "SELECT * FROM tenant ORDER BY id DESC"); err != nil {
+		return fmt.Errorf("error Select tenant: %w", err)
+	}
+	billings := make([]BillingRow, 0, len(ts)*10)
+	for _, t := range ts {
+		err := func(t TenantRow) error {
+			tenantDB, err := connectToTenantDB(t.ID)
+			if err != nil {
+				return fmt.Errorf("failed to connectToTenantDB: %w", err)
+			}
+			defer tenantDB.Close()
+			cs := []CompetitionRow{}
+			if err := tenantDB.SelectContext(
+				ctx,
+				&cs,
+				"SELECT * FROM competition WHERE tenant_id=?",
+				t.ID,
+			); err != nil {
+				return fmt.Errorf("failed to Select competition: %w", err)
+			}
+			for _, comp := range cs {
+				report, err := billingReportByCompetition(ctx, tenantDB, t.ID, &comp)
+				if err != nil {
+					return fmt.Errorf("failed to billingReportByCompetition: %w", err)
+				}
+				billings = append(billings, BillingRow{
+					TenantID:      t.ID,
+					CompetitionID: comp.ID,
+					Player:        report.PlayerCount,
+					Visitor:       report.VisitorCount,
+					Yen:           report.BillingYen,
+				})
+			}
+			return nil
+		}(t)
+		if err != nil {
+			return err
+		}
+	}
+	if _, err := adminDB.NamedExecContext(
+		ctx,
+		"INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (:tenant_id, :competition_id, :player, :visitor, :yen)",
+		billings,
+	); err != nil {
+		return fmt.Errorf(
+			"error Insert billing, %w",
+			err,
+		)
+	}
 
 	res := InitializeHandlerResult{
 		Lang: "go",
 	}
 	return c.JSON(http.StatusOK, SuccessResult{Status: true, Data: res})
+}
+
+type BillingRow struct {
+	TenantID      int64  `db:"tenant_id"`
+	CompetitionID string `db:"competition_id"`
+	Player        int64  `db:"player"`
+	Visitor       int64  `db:"visitor"`
+	Yen           int64  `db:"yen"`
 }
 
 func initializeHandler2(c echo.Context) error {
@@ -2122,34 +2205,3 @@ func Proxy(c echo.Context, v *Viewer) bool {
 	rp.ServeHTTP(c.Response(), c.Request())
 	return true
 }
-
-// func Proxy(c echo) {
-// 	r := chi.NewRouter()
-// 	r.HandleFunc("/*", func(w http.ResponseWriter, r *http.Request) {
-// 		v, err := parseViewerReq(r)
-// 		if err != nil {
-// 			w.WriteHeader(http.StatusInternalServerError)
-// 			w.Write([]byte(fmt.Errorf("error parseViewer: %w", err).Error()))
-// 			return
-// 		}
-// 		if v.role == RoleOrganizer || v.role == RolePlayer {
-// 			host := "192.168.0.11"
-// 			if v.tenantID%2 == 0 {
-// 				host = "192.168.0.12"
-// 			}
-
-// 			rp := &httputil.ReverseProxy{
-// 				Director: func(req *http.Request) {
-// 					req.URL.Scheme = "http"
-// 					req.URL.Host = host
-
-// 					if _, ok := req.Header["User-Agent"]; !ok {
-// 						// explicitly disable User-Agent so it's not set to default value
-// 						req.Header.Set("User-Agent", "")
-// 					}
-// 				},
-// 			}
-// 			rp.ServeHTTP(w, r)
-// 		}
-// 	})
-// }
