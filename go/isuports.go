@@ -1114,11 +1114,11 @@ func competitionsAddHandler(c echo.Context) error {
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if v.tenantID == 1 {
-	// 	c.Response().Header().Add("Retry-After", "3600")
-	// 	c.Response().WriteHeader(429)
-	// 	return nil
-	// }
+	if v.tenantID == 1 {
+		c.Response().Header().Add("Retry-After", "3600")
+		c.Response().WriteHeader(429)
+		return nil
+	}
 	if Proxy(c, v) {
 		return nil
 	}
@@ -2265,12 +2265,12 @@ func Proxy(c echo.Context, v *Viewer) bool {
 	if ownHost != "192.168.0.11" {
 		return false
 	}
-	if v.tenantID == 1 {
-		return false
-	}
+
 	host := ""
-	switch v.tenantID % 3 {
-	case 1, 2:
+	switch v.tenantID % 4 {
+	case 1:
+		return false
+	case 2, 3:
 		host = "192.168.0.12:3000"
 	case 0:
 		host = "192.168.0.13:3000"
