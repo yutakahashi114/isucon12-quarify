@@ -1421,7 +1421,7 @@ func billingHandler(c echo.Context) error {
 	}
 
 	bs := []BillingRow{}
-	if err := tenantDB.SelectContext(
+	if err := adminDB.SelectContext(
 		ctx,
 		&cs,
 		"SELECT * FROM billing WHERE tenant_id=?",
