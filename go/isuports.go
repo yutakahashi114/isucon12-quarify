@@ -269,6 +269,11 @@ type Viewer struct {
 
 // リクエストヘッダをパースしてViewerを返す
 func parseViewer(c echo.Context) (*Viewer, error) {
+	if b := c.Request().Header.Get("Viewer"); b != "" {
+		v := &Viewer{}
+		return v.Decode([]byte(b))
+	}
+
 	cookie, err := c.Request().Cookie(cookieName)
 	if err != nil {
 		return nil, echo.NewHTTPError(
@@ -2369,7 +2374,7 @@ func Proxy(c echo.Context, v *Viewer) bool {
 	case 0:
 		host = "192.168.0.13:3000"
 	}
-
+	b, _ := v.Encode()
 	rp := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req.URL.Scheme = "http"
@@ -2379,6 +2384,8 @@ func Proxy(c echo.Context, v *Viewer) bool {
 				// explicitly disable User-Agent so it's not set to default value
 				req.Header.Set("User-Agent", "")
 			}
+
+			req.Header.Set("Viewer", string(b))
 		},
 		Transport: tr,
 	}
