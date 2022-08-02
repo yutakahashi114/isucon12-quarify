@@ -50,7 +50,9 @@ func (aq *AsyncExecute[V]) execute(wait time.Duration) {
 		for _, ch := range waited {
 			ch <- struct{}{}
 		}
-		<-c.C
+		if len(data) == 0 {
+			<-c.C
+		}
 	}
 }
 
