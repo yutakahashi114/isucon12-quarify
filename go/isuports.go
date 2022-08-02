@@ -1239,6 +1239,7 @@ func competitionFinishHandler(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	defer tenantDB.Close()
 
 	id := c.Param("competition_id")
 	if id == "" {
@@ -1270,8 +1271,13 @@ func competitionFinishHandler(c echo.Context) error {
 		return current
 	})
 	go func() {
-		defer tenantDB.Close()
 		time.Sleep(500 * time.Millisecond)
+		tenantDB, err := connectToTenantDB(v.tenantID)
+		if err != nil {
+			log.Errorf("failed to connectToTenantDB: %w", err)
+			return
+		}
+		defer tenantDB.Close()
 		ctx := context.Background()
 		comp.FinishedAt = sql.NullInt64{Valid: true, Int64: now}
 		comp.UpdatedAt = now
