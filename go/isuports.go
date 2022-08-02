@@ -1270,40 +1270,30 @@ func competitionFinishHandler(c echo.Context) error {
 		current.UpdatedAt = now
 		return current
 	})
-	go func() {
-		time.Sleep(500 * time.Millisecond)
-		tenantDB, err := connectToTenantDB(v.tenantID)
-		if err != nil {
-			log.Errorf("failed to connectToTenantDB: %w", err)
-			return
-		}
-		defer tenantDB.Close()
-		ctx := context.Background()
-		comp.FinishedAt = sql.NullInt64{Valid: true, Int64: now}
-		comp.UpdatedAt = now
-		report, err := billingReportByCompetition(ctx, tenantDB, v.tenantID, comp)
-		if err != nil {
-			log.Errorf("failed to billingReportByCompetition: %w", err)
-			return
-		}
-		if _, err := adminDB.NamedExecContext(
-			ctx,
-			"INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (:tenant_id, :competition_id, :player, :visitor, :yen)",
-			BillingRow{
-				TenantID:      v.tenantID,
-				CompetitionID: id,
-				Player:        report.PlayerCount,
-				Visitor:       report.VisitorCount,
-				Yen:           report.BillingYen,
-			},
-		); err != nil {
-			log.Errorf(
-				"error Insert billing, %w",
-				err,
-			)
-			return
-		}
-	}()
+	comp.FinishedAt = sql.NullInt64{Valid: true, Int64: now}
+	comp.UpdatedAt = now
+	visitHistoryExec.Wait()
+	report, err := billingReportByCompetition(ctx, tenantDB, v.tenantID, comp)
+	if err != nil {
+		return fmt.Errorf("failed to billingReportByCompetition: %w", err)
+	}
+	if _, err := adminDB.NamedExecContext(
+		ctx,
+		"INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (:tenant_id, :competition_id, :player, :visitor, :yen)",
+		BillingRow{
+			TenantID:      v.tenantID,
+			CompetitionID: id,
+			Player:        report.PlayerCount,
+			Visitor:       report.VisitorCount,
+			Yen:           report.BillingYen,
+		},
+	); err != nil {
+
+		return fmt.Errorf(
+			"error Insert billing, %w",
+			err,
+		)
+	}
 
 	return c.JSON(http.StatusOK, SuccessResult{Status: true})
 }
