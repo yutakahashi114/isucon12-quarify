@@ -2042,9 +2042,27 @@ func competitionRankingHandler(c echo.Context) error {
 			}
 		}
 	*/
+
 	max := rankAfter + 100
 	if max >= int64(len(pagedRanks)) {
 		max = int64(len(pagedRanks))
+	}
+	if rankAfter >= int64(len(pagedRanks)) {
+		rankAfter = int64(len(pagedRanks))
+	}
+	if rankAfter == max {
+		res := SuccessResult{
+			Status: true,
+			Data: CompetitionRankingHandlerResult{
+				Competition: CompetitionDetail{
+					ID:         competition.ID,
+					Title:      competition.Title,
+					IsFinished: competition.FinishedAt.Valid,
+				},
+				Ranks: []CompetitionRank{},
+			},
+		}
+		return c.JSON(http.StatusOK, res)
 	}
 	res := SuccessResult{
 		Status: true,
