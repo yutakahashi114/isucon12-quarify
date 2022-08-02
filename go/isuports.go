@@ -22,6 +22,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 	json "github.com/goccy/go-json"
 	"github.com/google/uuid"
+	"github.com/isucon/isucon12-qualify/webapp/go/asyncexecute"
 	"github.com/isucon/isucon12-qualify/webapp/go/cache"
 	"github.com/isucon/isucon12-qualify/webapp/go/mutexmap"
 	"github.com/isucon/isucon12-qualify/webapp/go/trace"
@@ -1070,7 +1071,7 @@ func playersAddHandler(c echo.Context) error {
 		playerCache.Set(id, p)
 	}
 	if _, err := tenantDB.NamedExecContext(
-		ctx,
+		t.QueryAlias(ctx, "INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (:id, :tenant_id, :display_name, :is_disqualified, :created_at, :updated_at)"),
 		"INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (:id, :tenant_id, :display_name, :is_disqualified, :created_at, :updated_at)",
 		pds,
 	); err != nil {
@@ -1269,29 +1270,34 @@ func competitionFinishHandler(c echo.Context) error {
 		current.UpdatedAt = now
 		return current
 	})
-
-	comp.FinishedAt = sql.NullInt64{Valid: true, Int64: now}
-	comp.UpdatedAt = now
-	report, err := billingReportByCompetition(ctx, tenantDB, v.tenantID, comp)
-	if err != nil {
-		return fmt.Errorf("failed to billingReportByCompetition: %w", err)
-	}
-	if _, err := adminDB.NamedExecContext(
-		ctx,
-		"INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (:tenant_id, :competition_id, :player, :visitor, :yen)",
-		BillingRow{
-			TenantID:      v.tenantID,
-			CompetitionID: id,
-			Player:        report.PlayerCount,
-			Visitor:       report.VisitorCount,
-			Yen:           report.BillingYen,
-		},
-	); err != nil {
-		return fmt.Errorf(
-			"error Insert billing, %w",
-			err,
-		)
-	}
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		ctx := context.Background()
+		comp.FinishedAt = sql.NullInt64{Valid: true, Int64: now}
+		comp.UpdatedAt = now
+		report, err := billingReportByCompetition(ctx, tenantDB, v.tenantID, comp)
+		if err != nil {
+			log.Errorf("failed to billingReportByCompetition: %w", err)
+			return
+		}
+		if _, err := adminDB.NamedExecContext(
+			ctx,
+			"INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (:tenant_id, :competition_id, :player, :visitor, :yen)",
+			BillingRow{
+				TenantID:      v.tenantID,
+				CompetitionID: id,
+				Player:        report.PlayerCount,
+				Visitor:       report.VisitorCount,
+				Yen:           report.BillingYen,
+			},
+		); err != nil {
+			log.Errorf(
+				"error Insert billing, %w",
+				err,
+			)
+			return
+		}
+	}()
 
 	return c.JSON(http.StatusOK, SuccessResult{Status: true})
 }
@@ -1462,7 +1468,7 @@ func competitionScoreHandler(c echo.Context) error {
 		return fmt.Errorf("error Delete player_score: tenantID=%d, competitionID=%s, %w", v.tenantID, competitionID, err)
 	}
 	if _, err := tx.NamedExecContext(
-		ctx,
+		t.QueryAlias(ctx, "INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (:id, :tenant_id, :player_id, :competition_id, :score, :row_num, :created_at, :updated_at)"),
 		"INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (:id, :tenant_id, :player_id, :competition_id, :score, :row_num, :created_at, :updated_at)",
 		playerScoreRows,
 	); err != nil {
@@ -1909,16 +1915,23 @@ func competitionRankingHandler(c echo.Context) error {
 	// 	}
 	// }
 	if !competition.FinishedAt.Valid {
-		if _, err := adminDB.ExecContext(
-			ctx,
-			"INSERT IGNORE INTO visit_history_2 (player_id, tenant_id, competition_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-			v.playerID, tenant.ID, competitionID, now, now,
-		); err != nil {
-			return fmt.Errorf(
-				"error Insert visit_history: playerID=%s, tenantID=%d, competitionID=%s, createdAt=%d, updatedAt=%d, %w",
-				v.playerID, tenant.ID, competitionID, now, now, err,
-			)
-		}
+		visitHistoryExec.Set(VisitHistoryRow{
+			PlayerID:      v.playerID,
+			TenantID:      tenant.ID,
+			CompetitionID: competitionID,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		})
+		// if _, err := adminDB.ExecContext(
+		// 	ctx,
+		// 	"INSERT IGNORE INTO visit_history_2 (player_id, tenant_id, competition_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+		// 	v.playerID, tenant.ID, competitionID, now, now,
+		// ); err != nil {
+		// 	return fmt.Errorf(
+		// 		"error Insert visit_history: playerID=%s, tenantID=%d, competitionID=%s, createdAt=%d, updatedAt=%d, %w",
+		// 		v.playerID, tenant.ID, competitionID, now, now, err,
+		// 	)
+		// }
 	}
 
 	var rankAfter int64
@@ -2065,6 +2078,27 @@ func competitionRankingHandler(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, res)
 }
+
+var visitHistoryExec = asyncexecute.New(func(vs []VisitHistoryRow) {
+	const valuesString = "(?,?,?,?,?),"
+	recordCount := len(vs)
+	const argCount = 5
+	var values strings.Builder
+	values.Grow(len([]byte(valuesString)) * recordCount)
+	args := make([]interface{}, 0, recordCount*argCount)
+	for _, v := range vs {
+		args = append(args, v.PlayerID, v.TenantID, v.CompetitionID, v.CreatedAt, v.UpdatedAt)
+		values.WriteString(valuesString)
+	}
+
+	if _, err := adminDB.ExecContext(
+		t.QueryAlias(context.Background(), "INSERT IGNORE INTO visit_history_2 (player_id, tenant_id, competition_id, created_at, updated_at) VALUES "),
+		"INSERT IGNORE INTO visit_history_2 (player_id, tenant_id, competition_id, created_at, updated_at) VALUES "+strings.TrimSuffix(values.String(), ","),
+		args...,
+	); err != nil {
+		log.Errorf("visit_history_2 error: %v", err)
+	}
+}, 200*time.Millisecond, 100)
 
 type CompetitionsHandlerResult struct {
 	Competitions []CompetitionDetail `json:"competitions"`
