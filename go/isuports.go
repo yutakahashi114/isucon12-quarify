@@ -611,15 +611,15 @@ func tenantsAddHandler(c echo.Context) error {
 
 	switch id % 5 {
 	case 1:
+		if err := createTenantDB(id); err != nil {
+			return fmt.Errorf("error createTenantDB: id=%d name=%s %w", id, name, err)
+		}
+	case 2, 3, 4:
 		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.12:3000/api/admin/tenants/add2/%v", id), nil)
 		re, err := http.DefaultClient.Do(req)
 		log.Print(err)
 		io.ReadAll(re.Body)
 		re.Body.Close()
-	case 2, 3, 4:
-		if err := createTenantDB(id); err != nil {
-			return fmt.Errorf("error createTenantDB: id=%d name=%s %w", id, name, err)
-		}
 	case 0:
 		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.13:3000/api/admin/tenants/add2/%v", id), nil)
 		re, err := http.DefaultClient.Do(req)
@@ -1169,11 +1169,11 @@ func competitionsAddHandler(c echo.Context) error {
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if v.tenantID == 1 {
-	// 	c.Response().Header().Add("Retry-After", "3600")
-	// 	c.Response().WriteHeader(429)
-	// 	return nil
-	// }
+	if v.tenantID == 1 {
+		c.Response().Header().Add("Retry-After", "3600")
+		c.Response().WriteHeader(429)
+		return nil
+	}
 	if Proxy(c, v) {
 		return nil
 	}
@@ -2457,9 +2457,9 @@ func Proxy(c echo.Context, v *Viewer) bool {
 	host := ""
 	switch v.tenantID % 5 {
 	case 1:
-		host = "192.168.0.12:3000"
-	case 2, 3, 4:
 		return false
+	case 2, 3, 4:
+		host = "192.168.0.12:3000"
 	case 0:
 		host = "192.168.0.13:3000"
 	}
