@@ -1255,6 +1255,7 @@ func competitionFinishHandler(c echo.Context) error {
 	}
 
 	now := time.Now().Unix()
+	waitCh := visitHistoryExec.Wait()
 	if _, err := tenantDB.ExecContext(
 		ctx,
 		"UPDATE competition SET finished_at = ?, updated_at = ? WHERE id = ?",
@@ -1272,7 +1273,7 @@ func competitionFinishHandler(c echo.Context) error {
 	})
 	comp.FinishedAt = sql.NullInt64{Valid: true, Int64: now}
 	comp.UpdatedAt = now
-	visitHistoryExec.Wait()
+	<-waitCh
 	report, err := billingReportByCompetition(ctx, tenantDB, v.tenantID, comp)
 	if err != nil {
 		return fmt.Errorf("failed to billingReportByCompetition: %w", err)

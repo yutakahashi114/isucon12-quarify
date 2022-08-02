@@ -54,10 +54,10 @@ func (aq *AsyncExecute[V]) execute(wait time.Duration) {
 	}
 }
 
-func (aq *AsyncExecute[V]) Wait() {
+func (aq *AsyncExecute[V]) Wait() chan struct{} {
 	ch := make(chan struct{}, 1)
 	aq.m.Lock()
 	aq.waited = append(aq.waited, ch)
 	aq.m.Unlock()
-	<-ch
+	return ch
 }
