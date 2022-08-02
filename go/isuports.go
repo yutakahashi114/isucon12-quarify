@@ -2112,7 +2112,7 @@ var visitHistoryExec = asyncexecute.New(func(vs []VisitHistoryRow) {
 	); err != nil {
 		log.Errorf("visit_history_2 error: %v", err)
 	}
-}, time.Second, 100)
+}, 50*time.Millisecond, 100)
 
 type CompetitionsHandlerResult struct {
 	Competitions []CompetitionDetail `json:"competitions"`
