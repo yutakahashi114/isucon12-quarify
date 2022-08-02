@@ -614,18 +614,18 @@ func tenantsAddHandler(c echo.Context) error {
 		if err := createTenantDB(id); err != nil {
 			return fmt.Errorf("error createTenantDB: id=%d name=%s %w", id, name, err)
 		}
-	case 2, 3, 4:
+	case 2, 3, 4, 0:
 		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.12:3000/api/admin/tenants/add2/%v", id), nil)
 		re, err := http.DefaultClient.Do(req)
 		log.Print(err)
 		io.ReadAll(re.Body)
 		re.Body.Close()
-	case 0:
-		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.13:3000/api/admin/tenants/add2/%v", id), nil)
-		re, err := http.DefaultClient.Do(req)
-		log.Print(err)
-		io.ReadAll(re.Body)
-		re.Body.Close()
+		// case 0:
+		// 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.13:3000/api/admin/tenants/add2/%v", id), nil)
+		// 	re, err := http.DefaultClient.Do(req)
+		// 	log.Print(err)
+		// 	io.ReadAll(re.Body)
+		// 	re.Body.Close()
 	}
 
 	/*
@@ -2440,10 +2440,10 @@ func Proxy(c echo.Context, v *Viewer) bool {
 	switch v.tenantID % 5 {
 	case 1:
 		return false
-	case 2, 3, 4:
+	case 2, 3, 4, 0:
 		host = "192.168.0.12:3000"
-	case 0:
-		host = "192.168.0.13:3000"
+		// case 0:
+		// 	host = "192.168.0.13:3000"
 	}
 	rp := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
