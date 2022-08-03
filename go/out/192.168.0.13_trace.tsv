@@ -1,8 +1,25 @@
 path	count	total(ms)	mean(ms)	min(ms)	max(ms)	query_count/request_count	query
-GET /api/player/player/:player_id	18894	7,472.830	0.395	0.024	46.313	-	-
-- sql total time	-	1,725.119	-	-	-	-	-
--	2806	1,370.312	0.488	0.103	29.997	0.148	Connect 
--	2806	354.807	0.126	0.041	7.238	0.148	"QueryContext SELECT player_score.score, competition.title, competition.created_at, competition.id FROM player_score INNER JOIN (
+POST /api/organizer/competition/:competition_id/finish	200	7,224.167	36.120	0.457	223.298	-	-
+- sql total time	-	2,591.649	-	-	-	-	-
+-	199	1,636.919	8.225	4.192	218.514	0.995	ExecContext UPDATE competition SET finished_at = ?, updated_at = ? WHERE id = ?
+-	199	683.269	3.433	1.066	13.203	0.995	ExecContext INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (?, ?, ?, ?, ?)
+-	199	161.621	0.812	0.414	5.319	0.995	QueryContext SELECT player_id, created_at AS min_created_at FROM visit_history_2 WHERE tenant_id = ? AND competition_id = ?
+-	201	95.187	0.473	0.141	12.155	1.005	Connect 
+-	199	14.629	0.073	0.022	0.385	0.995	QueryContext SELECT DISTINCT(player_id) FROM player_score WHERE tenant_id = ? AND competition_id = ?
+-	1	0.021	0.021	0.021	0.021	0.005	QueryContext SELECT * FROM competition WHERE id = ?
+POST /api/organizer/competition/:competition_id/score	217	3,474.142	16.009	0.055	65.872	-	-
+- sql total time	-	1,166.404	-	-	-	-	-
+-	212	882.027	4.160	1.021	39.528	0.976	ExecContext INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (:id, :tenant_id, :player_id, :competition_id, :score, :row_num, :created_at, :updated_at)
+-	212	150.458	0.709	0.033	10.856	0.976	ExecContext DELETE FROM player_score WHERE tenant_id = ? AND competition_id = ?
+-	214	111.837	0.522	0.148	15.307	0.986	Connect 
+-	212	11.348	0.053	0.011	3.699	0.976	BeginTx 
+-	371	10.713	0.028	0.006	2.165	1.709	QueryContext SELECT * FROM player WHERE id = ?
+-	1	0.020	0.020	0.020	0.020	0.004	QueryContext SELECT * FROM competition WHERE id = ?
+POST /initialize2	1	2,705.660	2,705.660	2,705.660	2,705.660	-	-
+GET /api/player/player/:player_id	20113	2,388.615	0.118	0.024	37.822	-	-
+- sql total time	-	19.889	-	-	-	-	-
+-	40	15.057	0.376	0.192	0.626	0.001	Connect 
+-	39	4.810	0.123	0.065	0.228	0.001	"QueryContext SELECT player_score.score, competition.title, competition.created_at, competition.id FROM player_score INNER JOIN (
 				SELECT competition_id, max(row_num) AS row_num FROM player_score WHERE tenant_id = ? AND player_id = ? GROUP BY competition_id
 			) AS c ON (
 				player_score.row_num = c.row_num
@@ -14,26 +31,12 @@ GET /api/player/player/:player_id	18894	7,472.830	0.395	0.024	46.313	-	-
 			)
 			ORDER BY competition.created_at ASC
 			"
-POST /api/organizer/competition/:competition_id/finish	192	6,963.731	36.269	10.677	99.799	-	-
-- sql total time	-	2,332.092	-	-	-	-	-
--	192	1,328.940	6.921	4.018	21.885	1.000	ExecContext UPDATE competition SET finished_at = ?, updated_at = ? WHERE id = ?
--	192	725.070	3.776	1.086	27.295	1.000	ExecContext INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (?, ?, ?, ?, ?)
--	192	161.239	0.839	0.402	9.495	1.000	QueryContext SELECT player_id, created_at AS min_created_at FROM visit_history_2 WHERE tenant_id = ? AND competition_id = ?
--	192	86.773	0.451	0.138	6.890	1.000	Connect 
--	192	30.068	0.156	0.022	16.180	1.000	QueryContext SELECT DISTINCT(player_id) FROM player_score WHERE tenant_id = ? AND competition_id = ?
-POST /api/organizer/competition/:competition_id/score	204	3,644.831	17.866	1.257	136.079	-	-
-- sql total time	-	1,309.031	-	-	-	-	-
--	203	1,081.423	5.327	0.363	91.880	0.995	ExecContext INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (:id, :tenant_id, :player_id, :competition_id, :score, :row_num, :created_at, :updated_at)
--	203	134.935	0.664	0.034	9.661	0.995	ExecContext DELETE FROM player_score WHERE tenant_id = ? AND competition_id = ?
--	203	74.183	0.365	0.119	4.266	0.995	Connect 
--	292	13.662	0.046	0.007	8.779	1.431	QueryContext SELECT * FROM player WHERE id = ?
--	203	4.826	0.023	0.009	0.121	0.995	BeginTx 
-POST /initialize2	1	2,552.868	2,552.868	2,552.868	2,552.868	-	-
-GET /api/player/competition/:competition_id/ranking	8199	2,486.990	0.303	0.028	78.934	-	-
-- sql total time	-	344.070	-	-	-	-	-
--	76	304.901	4.011	0.147	40.116	0.009	Connect 
--	26	19.964	0.767	0.373	4.282	0.003	QueryContext SELECT * FROM tenant WHERE id = ?
--	72	19.204	0.266	0.063	5.277	0.008	"QueryContext SELECT player_score.*, display_name FROM player_score INNER JOIN (
+-	1	0.021	0.021	0.021	0.021	0.000	QueryContext SELECT * FROM player WHERE id = ?
+GET /api/player/competition/:competition_id/ranking	8872	1,845.561	0.208	0.019	17.419	-	-
+- sql total time	-	42.772	-	-	-	-	-
+-	27	22.762	0.843	0.386	4.278	0.003	QueryContext SELECT * FROM tenant WHERE id = ?
+-	5	19.773	3.954	0.264	6.892	0.000	Connect 
+-	1	0.184	0.184	0.184	0.184	0.000	"QueryContext SELECT player_score.*, display_name FROM player_score INNER JOIN (
 			SELECT player_id, max(row_num) AS row_num FROM player_score WHERE tenant_id = ? AND competition_id = ? GROUP BY player_id
 		) AS c ON (
 			player_score.player_id = c.player_id
@@ -45,61 +48,75 @@ GET /api/player/competition/:competition_id/ranking	8199	2,486.990	0.303	0.028	7
 		)
 		ORDER BY player_score.score DESC, player_score.row_num ASC
 		"
-GET /api/player/competitions	1185	1,598.796	1.349	0.137	36.243	-	-
-- sql total time	-	1,051.866	-	-	-	-	-
--	1183	1,005.842	0.850	0.106	36.025	0.998	Connect 
--	1183	46.023	0.038	0.011	2.309	0.998	QueryContext SELECT * FROM competition WHERE tenant_id=? ORDER BY created_at DESC
-POST /api/organizer/competitions/add	203	1,452.598	7.155	4.757	16.386	-	-
-- sql total time	-	1,397.855	-	-	-	-	-
--	203	1,321.291	6.508	4.090	16.020	1.000	ExecContext INSERT INTO competition (id, tenant_id, title, finished_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
--	203	76.564	0.377	0.142	3.156	1.000	Connect 
-GET /api/organizer/players	205	726.345	3.543	1.276	12.898	-	-
-- sql total time	-	90.130	-	-	-	-	-
--	205	75.804	0.369	0.129	3.518	1.000	Connect 
--	205	14.326	0.069	0.012	5.327	1.000	QueryContext SELECT * FROM player WHERE tenant_id=? ORDER BY created_at DESC
-POST /api/admin/tenants/add2/:tenant_id	15	361.546	24.103	17.797	52.495	-	-
-GET /api/organizer/billing	187	360.260	1.926	0.846	10.597	-	-
-- sql total time	-	270.186	-	-	-	-	-
--	187	177.198	0.947	0.400	8.277	1.000	QueryContext SELECT * FROM billing WHERE tenant_id=?
--	187	85.919	0.459	0.129	7.147	1.000	Connect 
--	187	7.069	0.037	0.014	0.255	1.000	QueryContext SELECT * FROM competition WHERE tenant_id=? ORDER BY created_at DESC
-POST /api/organizer/players/add	15	125.658	8.377	6.535	9.994	-	-
-- sql total time	-	110.102	-	-	-	-	-
--	15	106.203	7.080	5.474	8.763	1.000	ExecContext INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (:id, :tenant_id, :display_name, :is_disqualified, :created_at, :updated_at)
--	15	3.898	0.259	0.195	0.356	1.000	Connect INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (:id, :tenant_id, :display_name, :is_disqualified, :created_at, :updated_at)
-POST /api/organizer/player/:player_id/disqualified	2	12.131	6.065	4.935	7.196	-	-
-- sql total time	-	11.857	-	-	-	-	-
--	2	11.260	5.630	4.666	6.593	1.000	ExecContext UPDATE player SET is_disqualified = ?, updated_at = ? WHERE id = ?
--	2	0.597	0.298	0.161	0.436	1.000	Connect 
+-	2	0.051	0.025	0.025	0.025	0.000	QueryContext SELECT * FROM competition WHERE id = ?
+POST /api/organizer/competitions/add	212	1,732.788	8.173	4.672	109.268	-	-
+- sql total time	-	1,670.843	-	-	-	-	-
+-	212	1,554.232	7.331	4.273	108.894	1.000	ExecContext INSERT INTO competition (id, tenant_id, title, finished_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+-	212	116.610	0.550	0.140	15.056	1.000	Connect 
+GET /api/player/competitions	1259	1,303.127	1.035	0.219	27.202	-	-
+- sql total time	-	757.106	-	-	-	-	-
+-	1258	710.756	0.564	0.109	22.921	0.999	Connect 
+-	1258	46.350	0.036	0.012	1.109	0.999	QueryContext SELECT * FROM competition WHERE tenant_id=? ORDER BY created_at DESC
+GET /api/organizer/players	211	791.124	3.749	1.312	26.871	-	-
+- sql total time	-	98.510	-	-	-	-	-
+-	211	90.063	0.426	0.127	9.249	1.000	Connect 
+-	211	8.446	0.040	0.013	0.350	1.000	QueryContext SELECT * FROM player WHERE tenant_id=? ORDER BY created_at DESC
+POST /api/admin/tenants/add2/:tenant_id	16	475.583	29.723	17.638	117.591	-	-
+GET /api/organizer/billing	194	361.314	1.862	0.867	16.154	-	-
+- sql total time	-	258.632	-	-	-	-	-
+-	194	167.530	0.863	0.364	15.579	1.000	QueryContext SELECT * FROM billing WHERE tenant_id=?
+-	194	83.910	0.432	0.147	8.393	1.000	Connect 
+-	194	7.191	0.037	0.014	0.273	1.000	QueryContext SELECT * FROM competition WHERE tenant_id=? ORDER BY created_at DESC
+POST /api/organizer/players/add	16	142.471	8.904	7.964	10.287	-	-
+- sql total time	-	125.862	-	-	-	-	-
+-	16	120.717	7.544	6.437	8.743	1.000	ExecContext INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (:id, :tenant_id, :display_name, :is_disqualified, :created_at, :updated_at)
+-	16	5.144	0.321	0.212	0.463	1.000	Connect INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (:id, :tenant_id, :display_name, :is_disqualified, :created_at, :updated_at)
+POST /api/organizer/player/:player_id/disqualified	3	14.530	4.843	0.728	8.306	-	-
+- sql total time	-	13.555	-	-	-	-	-
+-	3	12.259	4.086	0.083	7.173	1.000	ExecContext UPDATE player SET is_disqualified = ?, updated_at = ? WHERE id = ?
+-	3	1.274	0.424	0.186	0.798	1.000	Connect 
+-	1	0.021	0.021	0.021	0.021	0.333	QueryContext SELECT * FROM player WHERE id = ?
 unknown	0	0.000	0.000	0.000	0.000	-	-
-- sql total time	-	4,426.389	-	-	-	-	-
--	836	2,202.517	2.634	0.392	32.799	0.000	ExecContext INSERT IGNORE INTO visit_history_2 (player_id, tenant_id, competition_id, created_at, updated_at) VALUES 
--	203	1,766.198	8.700	4.179	50.582	0.000	Commit 
--	5068	457.672	0.090	0.015	10.590	0.000	Close 
+- sql total time	-	4,356.394	-	-	-	-	-
+-	900	2,396.292	2.662	0.381	29.644	0.000	ExecContext INSERT IGNORE INTO visit_history_2 (player_id, tenant_id, competition_id, created_at, updated_at) VALUES 
+-	212	1,781.084	8.401	4.522	29.580	0.000	Commit 
+-	2350	179.017	0.076	0.014	12.014	0.000	Close 
 request							
-GET /api/player/player/:player_id	18894	7,472.830	0.395	0.024	46.313	-	-
-POST /api/organizer/competition/:competition_id/finish	192	6,963.731	36.269	10.677	99.799	-	-
-POST /api/organizer/competition/:competition_id/score	204	3,644.831	17.866	1.257	136.079	-	-
-POST /initialize2	1	2,552.868	2,552.868	2,552.868	2,552.868	-	-
-GET /api/player/competition/:competition_id/ranking	8199	2,486.990	0.303	0.028	78.934	-	-
-GET /api/player/competitions	1185	1,598.796	1.349	0.137	36.243	-	-
-POST /api/organizer/competitions/add	203	1,452.598	7.155	4.757	16.386	-	-
-GET /api/organizer/players	205	726.345	3.543	1.276	12.898	-	-
-POST /api/admin/tenants/add2/:tenant_id	15	361.546	24.103	17.797	52.495	-	-
-GET /api/organizer/billing	187	360.260	1.926	0.846	10.597	-	-
-POST /api/organizer/players/add	15	125.658	8.377	6.535	9.994	-	-
-POST /api/organizer/player/:player_id/disqualified	2	12.131	6.065	4.935	7.196	-	-
+POST /api/organizer/competition/:competition_id/finish	200	7,224.167	36.120	0.457	223.298	-	-
+POST /api/organizer/competition/:competition_id/score	217	3,474.142	16.009	0.055	65.872	-	-
+POST /initialize2	1	2,705.660	2,705.660	2,705.660	2,705.660	-	-
+GET /api/player/player/:player_id	20113	2,388.615	0.118	0.024	37.822	-	-
+GET /api/player/competition/:competition_id/ranking	8872	1,845.561	0.208	0.019	17.419	-	-
+POST /api/organizer/competitions/add	212	1,732.788	8.173	4.672	109.268	-	-
+GET /api/player/competitions	1259	1,303.127	1.035	0.219	27.202	-	-
+GET /api/organizer/players	211	791.124	3.749	1.312	26.871	-	-
+POST /api/admin/tenants/add2/:tenant_id	16	475.583	29.723	17.638	117.591	-	-
+GET /api/organizer/billing	194	361.314	1.862	0.867	16.154	-	-
+POST /api/organizer/players/add	16	142.471	8.904	7.964	10.287	-	-
+POST /api/organizer/player/:player_id/disqualified	3	14.530	4.843	0.728	8.306	-	-
 unknown	0	0.000	0.000	0.000	0.000	-	-
 sql							
--	5057	3,080.900	0.609	0.103	40.116	-	Connect 
--	836	2,202.517	2.634	0.392	32.799	-	ExecContext INSERT IGNORE INTO visit_history_2 (player_id, tenant_id, competition_id, created_at, updated_at) VALUES 
--	203	1,766.198	8.700	4.179	50.582	-	Commit 
--	192	1,328.940	6.921	4.018	21.885	-	ExecContext UPDATE competition SET finished_at = ?, updated_at = ? WHERE id = ?
--	203	1,321.291	6.508	4.090	16.020	-	ExecContext INSERT INTO competition (id, tenant_id, title, finished_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
--	203	1,081.423	5.327	0.363	91.880	-	ExecContext INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (:id, :tenant_id, :player_id, :competition_id, :score, :row_num, :created_at, :updated_at)
--	192	725.070	3.776	1.086	27.295	-	ExecContext INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (?, ?, ?, ?, ?)
--	5068	457.672	0.090	0.015	10.590	-	Close 
--	2806	354.807	0.126	0.041	7.238	-	"QueryContext SELECT player_score.score, competition.title, competition.created_at, competition.id FROM player_score INNER JOIN (
+-	900	2,396.292	2.662	0.381	29.644	-	ExecContext INSERT IGNORE INTO visit_history_2 (player_id, tenant_id, competition_id, created_at, updated_at) VALUES 
+-	212	1,781.084	8.401	4.522	29.580	-	Commit 
+-	199	1,636.919	8.225	4.192	218.514	-	ExecContext UPDATE competition SET finished_at = ?, updated_at = ? WHERE id = ?
+-	212	1,554.232	7.331	4.273	108.894	-	ExecContext INSERT INTO competition (id, tenant_id, title, finished_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+-	2338	1,244.472	0.532	0.109	22.921	-	Connect 
+-	212	882.027	4.160	1.021	39.528	-	ExecContext INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (:id, :tenant_id, :player_id, :competition_id, :score, :row_num, :created_at, :updated_at)
+-	199	683.269	3.433	1.066	13.203	-	ExecContext INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (?, ?, ?, ?, ?)
+-	2350	179.017	0.076	0.014	12.014	-	Close 
+-	194	167.530	0.863	0.364	15.579	-	QueryContext SELECT * FROM billing WHERE tenant_id=?
+-	199	161.621	0.812	0.414	5.319	-	QueryContext SELECT player_id, created_at AS min_created_at FROM visit_history_2 WHERE tenant_id = ? AND competition_id = ?
+-	212	150.458	0.709	0.033	10.856	-	ExecContext DELETE FROM player_score WHERE tenant_id = ? AND competition_id = ?
+-	16	120.717	7.544	6.437	8.743	-	ExecContext INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (:id, :tenant_id, :display_name, :is_disqualified, :created_at, :updated_at)
+-	1452	53.542	0.036	0.012	1.109	-	QueryContext SELECT * FROM competition WHERE tenant_id=? ORDER BY created_at DESC
+-	27	22.762	0.843	0.386	4.278	-	QueryContext SELECT * FROM tenant WHERE id = ?
+-	199	14.629	0.073	0.022	0.385	-	QueryContext SELECT DISTINCT(player_id) FROM player_score WHERE tenant_id = ? AND competition_id = ?
+-	3	12.259	4.086	0.083	7.173	-	ExecContext UPDATE player SET is_disqualified = ?, updated_at = ? WHERE id = ?
+-	212	11.348	0.053	0.011	3.699	-	BeginTx 
+-	373	10.755	0.028	0.006	2.165	-	QueryContext SELECT * FROM player WHERE id = ?
+-	211	8.446	0.040	0.013	0.350	-	QueryContext SELECT * FROM player WHERE tenant_id=? ORDER BY created_at DESC
+-	16	5.144	0.321	0.212	0.463	-	Connect INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (:id, :tenant_id, :display_name, :is_disqualified, :created_at, :updated_at)
+-	39	4.810	0.123	0.065	0.228	-	"QueryContext SELECT player_score.score, competition.title, competition.created_at, competition.id FROM player_score INNER JOIN (
 				SELECT competition_id, max(row_num) AS row_num FROM player_score WHERE tenant_id = ? AND player_id = ? GROUP BY competition_id
 			) AS c ON (
 				player_score.row_num = c.row_num
@@ -111,14 +128,7 @@ sql
 			)
 			ORDER BY competition.created_at ASC
 			"
--	187	177.198	0.947	0.400	8.277	-	QueryContext SELECT * FROM billing WHERE tenant_id=?
--	192	161.239	0.839	0.402	9.495	-	QueryContext SELECT player_id, created_at AS min_created_at FROM visit_history_2 WHERE tenant_id = ? AND competition_id = ?
--	203	134.935	0.664	0.034	9.661	-	ExecContext DELETE FROM player_score WHERE tenant_id = ? AND competition_id = ?
--	15	106.203	7.080	5.474	8.763	-	ExecContext INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (:id, :tenant_id, :display_name, :is_disqualified, :created_at, :updated_at)
--	1370	53.093	0.038	0.011	2.309	-	QueryContext SELECT * FROM competition WHERE tenant_id=? ORDER BY created_at DESC
--	192	30.068	0.156	0.022	16.180	-	QueryContext SELECT DISTINCT(player_id) FROM player_score WHERE tenant_id = ? AND competition_id = ?
--	26	19.964	0.767	0.373	4.282	-	QueryContext SELECT * FROM tenant WHERE id = ?
--	72	19.204	0.266	0.063	5.277	-	"QueryContext SELECT player_score.*, display_name FROM player_score INNER JOIN (
+-	1	0.184	0.184	0.184	0.184	-	"QueryContext SELECT player_score.*, display_name FROM player_score INNER JOIN (
 			SELECT player_id, max(row_num) AS row_num FROM player_score WHERE tenant_id = ? AND competition_id = ? GROUP BY player_id
 		) AS c ON (
 			player_score.player_id = c.player_id
@@ -130,8 +140,4 @@ sql
 		)
 		ORDER BY player_score.score DESC, player_score.row_num ASC
 		"
--	205	14.326	0.069	0.012	5.327	-	QueryContext SELECT * FROM player WHERE tenant_id=? ORDER BY created_at DESC
--	292	13.662	0.046	0.007	8.779	-	QueryContext SELECT * FROM player WHERE id = ?
--	2	11.260	5.630	4.666	6.593	-	ExecContext UPDATE player SET is_disqualified = ?, updated_at = ? WHERE id = ?
--	203	4.826	0.023	0.009	0.121	-	BeginTx 
--	15	3.898	0.259	0.195	0.356	-	Connect INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (:id, :tenant_id, :display_name, :is_disqualified, :created_at, :updated_at)
+-	4	0.093	0.023	0.020	0.025	-	QueryContext SELECT * FROM competition WHERE id = ?
