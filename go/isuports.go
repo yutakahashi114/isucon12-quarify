@@ -34,7 +34,6 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"golang.org/x/exp/slices"
-	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -1661,7 +1660,12 @@ type PlayerScoreRowPlayer struct {
 	CompetitionID        string `db:"id" json:"-"`
 }
 
-var playerHandlersfg = singleflight.Group{}
+type PlayerScoreRows struct {
+	CompetitionTitles     string `db:"titles"`
+	Scores                string `db:"scores"`
+	CompetitionCreatedAts string `db:"created_ats" json:"-"`
+	CompetitionIDs        string `db:"ids"`
+}
 
 // 参加者向けAPI
 // GET /api/player/player/:player_id
@@ -1736,12 +1740,17 @@ func playerHandler(c echo.Context) error {
 		return c.JSON(http.StatusOK, res)
 	}
 
-	pss := make([]PlayerScoreRowPlayer, 0)
-	if err := tenantDB.SelectContext(
+	ps := PlayerScoreRows{}
+	if err := tenantDB.GetContext(
 		ctx,
-		&pss,
+		&ps,
 		// 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
-		`SELECT player_score.score, competition.title, competition.created_at, competition.id FROM player_score INNER JOIN (
+		`SELECT
+				GROUP_CONCAT(player_score.score) AS scores,
+				GROUP_CONCAT(competition.title) AS titles,
+				GROUP_CONCAT(competition.created_at) AS created_ats,
+				GROUP_CONCAT(competition.id) AS ids
+			FROM player_score INNER JOIN (
 				SELECT competition_id, max(row_num) AS row_num FROM player_score WHERE tenant_id = ? AND player_id = ? GROUP BY competition_id
 			) AS c ON (
 				player_score.row_num = c.row_num
@@ -1752,6 +1761,7 @@ func playerHandler(c echo.Context) error {
 				competition.id = player_score.competition_id
 			)
 			ORDER BY competition.created_at ASC
+			GROUP BY player_score.player_id
 			`,
 		v.tenantID,
 		p.ID,
@@ -1759,6 +1769,21 @@ func playerHandler(c echo.Context) error {
 		p.ID,
 	); err != nil {
 		return fmt.Errorf("error Select player_score: tenantID=%d, playerID=%s, %w", v.tenantID, p.ID, err)
+	}
+	scores := strings.Split(ps.Scores, ",")
+	createdAts := strings.Split(ps.CompetitionCreatedAts, ",")
+	titles := strings.Split(ps.CompetitionTitles, ",")
+	ids := strings.Split(ps.CompetitionIDs, ",")
+	pss := make([]PlayerScoreRowPlayer, len(scores))
+	for i, id := range ids {
+		score, _ := strconv.Atoi(scores[i])
+		createdAt, _ := strconv.Atoi(createdAts[i])
+		pss[i] = PlayerScoreRowPlayer{
+			CompetitionTitle:     titles[i],
+			Score:                int64(score),
+			CompetitionCreatedAt: int64(createdAt),
+			CompetitionID:        id,
+		}
 	}
 	playerScoreCache.Set(p.ID, pss)
 	res := SuccessResult{
