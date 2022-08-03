@@ -7,8 +7,10 @@ SELECT DISTINCT(player_id) FROM player_score WHERE tenant_id = 100 AND competiti
 INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?
 too long query
 
-INSERT INTO tenant (name, display_name, created_at, updated_at) VALUES ('vayc-sgwr-1659442580', '立川の缶詰', 1659442580, 1659442580) -- INSERT INTO tenant (name, display_name, created_at, updated_at) VALUES (?, ?, ?, ?)
+INSERT INTO tenant (name, display_name, created_at, updated_at) VALUES ('m-gnhk-1659534320', 'ビールバトル', 1659534320, 1659534320) -- INSERT INTO tenant (name, display_name, created_at, updated_at) VALUES (?, ?, ?, ?)
 
+SELECT * FROM tenant WHERE name = 'm-gnhk-1659534320' -- SELECT * FROM tenant WHERE name = ?
+no warning
 SELECT tenant.id, tenant.name, tenant.display_name, y.yen
 		FROM tenant,
 			LATERAL (
@@ -21,7 +23,7 @@ SELECT tenant.id, tenant.name, tenant.display_name, y.yen
 				GROUP BY
 					tenant_id
 			) AS y
-		WHERE id < 28 ORDER BY id DESC LIMIT 10 -- SELECT tenant.id, tenant.name, tenant.display_name, y.yen
+		WHERE id < 21 ORDER BY id DESC LIMIT 10 -- SELECT tenant.id, tenant.name, tenant.display_name, y.yen
 		FROM tenant,
 			LATERAL (
 				SELECT
@@ -34,8 +36,6 @@ SELECT tenant.id, tenant.name, tenant.display_name, y.yen
 					tenant_id
 			) AS y
 		WHERE id < ? ORDER BY id DESC LIMIT 10
-no warning
-SELECT * FROM tenant WHERE name = 'vayc-sgwr-1659442580' -- SELECT * FROM tenant WHERE name = ?
 no warning
 SELECT * FROM player WHERE id = '0000000000' -- SELECT * FROM player WHERE id = ?
 SELECT tenant.id, tenant.name, tenant.display_name, y.yen
@@ -64,15 +64,19 @@ SELECT tenant.id, tenant.name, tenant.display_name, y.yen
 			) AS y
 		ORDER BY id DESC LIMIT 10
 no warning
-SELECT * FROM player WHERE tenant_id=36 ORDER BY created_at DESC -- SELECT * FROM player WHERE tenant_id=? ORDER BY created_at DESC
-INSERT INTO competition (id, tenant_id, title, finished_at, created_at, updated_at) VALUES ('ecdb5f6d-125c-11ed-be67-0ac90d535923', 36, '第7回 リリーフォビア', <nil>, 1659442583, 1659442583) -- INSERT INTO competition (id, tenant_id, title, finished_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+SELECT * FROM player WHERE tenant_id=1 ORDER BY created_at DESC -- SELECT * FROM player WHERE tenant_id=? ORDER BY created_at DESC
+INSERT INTO competition (id, tenant_id, title, finished_at, created_at, updated_at) VALUES ('864a5885-1332-11ed-8e72-0ac90d535923', 4606, 'やわやわアワビ.dev #7', <nil>, 1659534324, 1659534324) -- INSERT INTO competition (id, tenant_id, title, finished_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+
+DELETE FROM player_score WHERE tenant_id = 4606 AND competition_id = '864a5885-1332-11ed-8e72-0ac90d535923' -- DELETE FROM player_score WHERE tenant_id = ? AND competition_id = ?
+INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, 
+too long query
 
 SELECT player_score.*, display_name FROM player_score INNER JOIN (
-			SELECT player_id, max(row_num) AS row_num FROM player_score WHERE tenant_id = 36 AND competition_id = 'ecdb5f6d-125c-11ed-be67-0ac90d535923' GROUP BY player_id
+			SELECT player_id, max(row_num) AS row_num FROM player_score WHERE tenant_id = 4606 AND competition_id = '864a5885-1332-11ed-8e72-0ac90d535923' GROUP BY player_id
 		) AS c ON (
 			player_score.player_id = c.player_id
 			AND player_score.row_num = c.row_num
-			AND player_score.tenant_id = 36 AND player_score.competition_id = 'ecdb5f6d-125c-11ed-be67-0ac90d535923'
+			AND player_score.tenant_id = 4606 AND player_score.competition_id = '864a5885-1332-11ed-8e72-0ac90d535923'
 		)
 		INNER JOIN player ON (
 			player.id = player_score.player_id
@@ -90,20 +94,13 @@ SELECT player_score.*, display_name FROM player_score INNER JOIN (
 		)
 		ORDER BY player_score.score DESC, player_score.row_num ASC
 		
-SELECT * FROM competition WHERE tenant_id=36 ORDER BY created_at DESC -- SELECT * FROM competition WHERE tenant_id=? ORDER BY created_at DESC
-INSERT IGNORE INTO visit_history_2 (player_id, tenant_id, competition_id, created_at, updated_at) VALUES ('502cb89e4',36,'ecdb5f6d-125c-11ed-be67-0ac90d535923',1659442583,1659442583),('4f0390dc0',36,'ecdb5f6d-125c-11ed-be67-0ac90d535923',1659442583,1659442583),('18c3300c9',36,'ecdb5f6d-125c-11ed-be67-0ac90d535923',1659442583,1659442583),('32536cbef',36,'ecdb5f6d-125c-11ed-be67-0ac90d535923',1659442583,1659442583),('619894413',36,'ecdb5f6d-125c-11ed-be67-0ac90d535923',1659442583,1659442583),('34734e292',36,'ecdb5f6d-125c-11ed-be67-0ac90d535923',1659442583,1659442583),('63b396198',36,'ecdb5f6d-125c-11ed-be67-0ac90d535923',1659442583,1659442583),('1b8df5029',36,'ecdb5f6d-125c-11ed-be67-0ac90d535923',1659442583,1659442583),('304d96d5a',36,'ecdb5f6d-125c-11ed-be67-0ac90d535923',1659442583,1659442583),('57e1bfd42',36,'ecdb5f6d-125c-11ed-be67-0ac90d535923',1659442583,1659442583) -- INSERT IGNORE INTO visit_history_2 (player_id, tenant_id, competition_id, created_at, updated_at) VALUES (?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?)
-
-DELETE FROM player_score WHERE tenant_id = 36 AND competition_id = 'ecdb5f6d-125c-11ed-be67-0ac90d535923' -- DELETE FROM player_score WHERE tenant_id = ? AND competition_id = ?
-INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, 
-too long query
-
-SELECT * FROM competition WHERE id = '155bc48ec' -- SELECT * FROM competition WHERE id = ?
+SELECT * FROM competition WHERE tenant_id=4606 ORDER BY created_at DESC -- SELECT * FROM competition WHERE tenant_id=? ORDER BY created_at DESC
 SELECT player_score.score, competition.title, competition.created_at, competition.id FROM player_score INNER JOIN (
-				SELECT competition_id, max(row_num) AS row_num FROM player_score WHERE tenant_id = 36 AND player_id = '1472e3d94' GROUP BY competition_id
+				SELECT competition_id, max(row_num) AS row_num FROM player_score WHERE tenant_id = 4606 AND player_id = '864863a5-1332-11ed-8e72-0ac90d535923' GROUP BY competition_id
 			) AS c ON (
 				player_score.row_num = c.row_num
 				AND player_score.competition_id = c.competition_id
-				AND player_score.tenant_id = 36 AND player_score.player_id = '1472e3d94'
+				AND player_score.tenant_id = 4606 AND player_score.player_id = '864863a5-1332-11ed-8e72-0ac90d535923'
 			)
 			INNER JOIN competition ON (
 				competition.id = player_score.competition_id
@@ -121,9 +118,11 @@ SELECT player_score.score, competition.title, competition.created_at, competitio
 			)
 			ORDER BY competition.created_at ASC
 			
-UPDATE competition SET finished_at = 1659442585, updated_at = 1659442585 WHERE id = 'ed32d362-125c-11ed-be67-0ac90d535923' -- UPDATE competition SET finished_at = ?, updated_at = ? WHERE id = ?
-INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (4136, 'ed32d362-125c-11ed-be67-0ac90d535923', 206, 0, 20600) -- INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (?, ?, ?, ?, ?)
+INSERT IGNORE INTO visit_history_2 (player_id, tenant_id, competition_id, created_at, updated_at) VALUES ('864864f2-1332-11ed-8e72-0ac90d535923',4606,'864a5885-1332-11ed-8e72-0ac90d535923',1659534324,1659534324),('864863ad-1332-11ed-8e72-0ac90d535923',4606,'864a5885-1332-11ed-8e72-0ac90d535923',1659534324,1659534324),('864863b1-1332-11ed-8e72-0ac90d535923',4606,'864a5885-1332-11ed-8e72-0ac90d535923',1659534324,1659534324),('86486295-1332-11ed-8e72-0ac90d535923',4606,'864a5885-1332-11ed-8e72-0ac90d535923',1659534324,1659534324),('864864a7-1332-11ed-8e72-0ac90d535923',4606,'864a5885-1332-11ed-8e72-0ac90d535923',1659534324,1659534324),('86486253-1332-11ed-8e72-0ac90d535923',4606,'864a5885-1332-11ed-8e72-0ac90d535923',1659534324,1659534324),('8648624b-1332-11ed-8e72-0ac90d535923',4606,'864a5885-1332-11ed-8e72-0ac90d535923',1659534324,1659534324),('86486258-1332-11ed-8e72-0ac90d535923',4606,'864a5885-1332-11ed-8e72-0ac90d535923',1659534324,1659534324),('86486247-1332-11ed-8e72-0ac90d535923',4606,'864a5885-1332-11ed-8e72-0ac90d535923',1659534324,1659534324),('86486250-1332-11ed-8e72-0ac90d535923',4606,'864a5885-1332-11ed-8e72-0ac90d535923',1659534324,1659534324),('86486250-1332-11ed-8e72-0ac90d535923',4606,'864a5885-1332-11ed-8e72-0ac90d535923',1659534324,1659534324),('86486238-1332-11ed-8e72-0ac90d535923',4606,'864a5885-1332-11ed-8e72-0ac90d535923',1659534324,1659534324) -- INSERT IGNORE INTO visit_history_2 (player_id, tenant_id, competition_id, created_at, updated_at) VALUES (?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?)
 
-SELECT * FROM billing WHERE tenant_id=4136 -- SELECT * FROM billing WHERE tenant_id=?
+UPDATE competition SET finished_at = 1659534325, updated_at = 1659534325 WHERE id = '864a5885-1332-11ed-8e72-0ac90d535923' -- UPDATE competition SET finished_at = ?, updated_at = ? WHERE id = ?
+INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (4606, '864a5885-1332-11ed-8e72-0ac90d535923', 200, 0, 20000) -- INSERT INTO billing (tenant_id, competition_id, player, visitor, yen) VALUES (?, ?, ?, ?, ?)
+
+SELECT * FROM billing WHERE tenant_id=4606 -- SELECT * FROM billing WHERE tenant_id=?
 no warning
-UPDATE player SET is_disqualified = true, updated_at = 1659442599 WHERE id = '62855defe' -- UPDATE player SET is_disqualified = ?, updated_at = ? WHERE id = ?
+UPDATE player SET is_disqualified = true, updated_at = 1659534339 WHERE id = '5c9c7c90b' -- UPDATE player SET is_disqualified = ?, updated_at = ? WHERE id = ?
