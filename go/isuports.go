@@ -1760,7 +1760,6 @@ func playerHandler(c echo.Context) error {
 			INNER JOIN competition ON (
 				competition.id = player_score.competition_id
 			)
-			ORDER BY competition.created_at ASC
 			GROUP BY player_score.player_id
 			`,
 		v.tenantID,
