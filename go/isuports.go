@@ -1068,6 +1068,7 @@ func playersAddHandler(c echo.Context) error {
 		}
 		pds = append(pds, p)
 		playerCache.Set(id, p)
+		playerScoreCache.Set(id, []PlayerScoreRowPlayer{})
 	}
 	if _, err := tenantDB.NamedExecContext(
 		t.QueryAlias(ctx, "INSERT INTO player (id, tenant_id, display_name, is_disqualified, created_at, updated_at) VALUES (:id, :tenant_id, :display_name, :is_disqualified, :created_at, :updated_at)"),
@@ -1209,6 +1210,7 @@ func competitionsAddHandler(c echo.Context) error {
 		UpdatedAt:  now,
 	})
 
+	rankingCache.Set(id, []CompetitionRank{})
 	res := CompetitionsAddHandlerResult{
 		Competition: CompetitionDetail{
 			ID:         id,
@@ -1475,8 +1477,7 @@ func competitionScoreHandler(c echo.Context) error {
 		)
 	}
 	tx.Commit()
-	key := fmt.Sprintf("tenantID:%v:competitionID:%v", v.tenantID, competitionID)
-	if prs, ok := rankingCache.Get(key); ok {
+	if prs, ok := rankingCache.Get(competitionID); ok {
 		playerScoreCache.UpdateAll(func(m map[string][]PlayerScoreRowPlayer) map[string][]PlayerScoreRowPlayer {
 			for _, pr := range prs {
 				if _, ok := scoredPlayerSet[pr.PlayerID]; !ok {
@@ -1492,7 +1493,7 @@ func competitionScoreHandler(c echo.Context) error {
 			return m
 		})
 	}
-	rankingCache.Set(key, pagedRanks)
+	rankingCache.Set(competitionID, pagedRanks)
 	playerScoreCache.UpdateAll(func(m map[string][]PlayerScoreRowPlayer) map[string][]PlayerScoreRowPlayer {
 		for _, rank := range ranks {
 			if current, ok := m[rank.PlayerID]; ok {
@@ -1942,8 +1943,7 @@ func competitionRankingHandler(c echo.Context) error {
 			return fmt.Errorf("error strconv.ParseUint: rankAfterStr=%s, %w", rankAfterStr, err)
 		}
 	}
-	key := fmt.Sprintf("tenantID:%v:competitionID:%v", tenant.ID, competitionID)
-	if pagedRanks, ok := rankingCache.Get(key); ok {
+	if pagedRanks, ok := rankingCache.Get(competitionID); ok {
 		max := rankAfter + 100
 		if max >= int64(len(pagedRanks)) {
 			max = int64(len(pagedRanks))
@@ -2008,7 +2008,7 @@ func competitionRankingHandler(c echo.Context) error {
 			PlayerDisplayName: rank.DisplayName,
 		})
 	}
-	rankingCache.Set(key, pagedRanks)
+	rankingCache.Set(competitionID, pagedRanks)
 	/*
 		pss := []PlayerScoreRow{}
 		if err := tenantDB.SelectContext(
