@@ -1740,17 +1740,12 @@ func playerHandler(c echo.Context) error {
 		return c.JSON(http.StatusOK, res)
 	}
 
-	ps := PlayerScoreRows{}
-	if err := tenantDB.GetContext(
+	pss := make([]PlayerScoreRowPlayer, 0)
+	if err := tenantDB.SelectContext(
 		ctx,
-		&ps,
+		&pss,
 		// 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
-		`SELECT
-				GROUP_CONCAT(player_score.score) AS scores,
-				GROUP_CONCAT(competition.title) AS titles,
-				GROUP_CONCAT(competition.created_at) AS created_ats,
-				GROUP_CONCAT(competition.id) AS ids
-			FROM player_score INNER JOIN (
+		`SELECT player_score.score, competition.title, competition.created_at, competition.id FROM player_score INNER JOIN (
 				SELECT competition_id, max(row_num) AS row_num FROM player_score WHERE tenant_id = ? AND player_id = ? GROUP BY competition_id
 			) AS c ON (
 				player_score.row_num = c.row_num
@@ -1760,7 +1755,7 @@ func playerHandler(c echo.Context) error {
 			INNER JOIN competition ON (
 				competition.id = player_score.competition_id
 			)
-			GROUP BY player_score.player_id
+			ORDER BY competition.created_at ASC
 			`,
 		v.tenantID,
 		p.ID,
@@ -1768,21 +1763,6 @@ func playerHandler(c echo.Context) error {
 		p.ID,
 	); err != nil {
 		return fmt.Errorf("error Select player_score: tenantID=%d, playerID=%s, %w", v.tenantID, p.ID, err)
-	}
-	scores := strings.Split(ps.Scores, ",")
-	createdAts := strings.Split(ps.CompetitionCreatedAts, ",")
-	titles := strings.Split(ps.CompetitionTitles, ",")
-	ids := strings.Split(ps.CompetitionIDs, ",")
-	pss := make([]PlayerScoreRowPlayer, len(scores))
-	for i, id := range ids {
-		score, _ := strconv.Atoi(scores[i])
-		createdAt, _ := strconv.Atoi(createdAts[i])
-		pss[i] = PlayerScoreRowPlayer{
-			CompetitionTitle:     titles[i],
-			Score:                int64(score),
-			CompetitionCreatedAt: int64(createdAt),
-			CompetitionID:        id,
-		}
 	}
 	playerScoreCache.Set(p.ID, pss)
 	res := SuccessResult{
