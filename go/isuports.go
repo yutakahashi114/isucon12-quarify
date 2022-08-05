@@ -607,9 +607,23 @@ func tenantsAddHandler(c echo.Context) error {
 		return fmt.Errorf("error get LastInsertId: %w", err)
 	}
 
-	if err := createTenantDB(id); err != nil {
-		return fmt.Errorf("error createTenantDB: id=%d name=%s %w", id, name, err)
+	switch id % 5 {
+	case 1:
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.11:3000/api/admin/tenants/add2/%v", id), nil)
+		re, err := http.DefaultClient.Do(req)
+		log.Print(err)
+		io.ReadAll(re.Body)
+		re.Body.Close()
+	case 2, 3, 4, 0:
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://192.168.0.12:3000/api/admin/tenants/add2/%v", id), nil)
+		re, err := http.DefaultClient.Do(req)
+		log.Print(err)
+		io.ReadAll(re.Body)
+		re.Body.Close()
 	}
+	// if err := createTenantDB(id); err != nil {
+	// 	return fmt.Errorf("error createTenantDB: id=%d name=%s %w", id, name, err)
+	// }
 	/*
 		switch id % 5 {
 		case 1:
@@ -973,9 +987,9 @@ func playersListHandler(c echo.Context) error {
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1022,9 +1036,9 @@ func playersAddHandler(c echo.Context) error {
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1105,9 +1119,9 @@ func playerDisqualifiedHandler(c echo.Context) error {
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1178,9 +1192,9 @@ func competitionsAddHandler(c echo.Context) error {
 		c.Response().WriteHeader(429)
 		return nil
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1236,9 +1250,9 @@ func competitionFinishHandler(c echo.Context) error {
 	} else if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1320,9 +1334,9 @@ func competitionScoreHandler(c echo.Context) error {
 	if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1571,9 +1585,9 @@ func billingHandler(c echo.Context) error {
 	if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1685,9 +1699,9 @@ func playerHandler(c echo.Context) error {
 	if v.role != RolePlayer {
 		return echo.NewHTTPError(http.StatusForbidden, "role player required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -1861,9 +1875,9 @@ func competitionRankingHandler(c echo.Context) error {
 	if v.role != RolePlayer {
 		return echo.NewHTTPError(http.StatusForbidden, "role player required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -2140,9 +2154,9 @@ func playerCompetitionsHandler(c echo.Context) error {
 	if v.role != RolePlayer {
 		return echo.NewHTTPError(http.StatusForbidden, "role player required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -2167,9 +2181,9 @@ func organizerCompetitionsHandler(c echo.Context) error {
 	if v.role != RoleOrganizer {
 		return echo.NewHTTPError(http.StatusForbidden, "role organizer required")
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -2261,9 +2275,9 @@ func meHandler(c echo.Context) error {
 			},
 		})
 	}
-	// if Proxy(c, v) {
-	// 	return nil
-	// }
+	if Proxy(c, v) {
+		return nil
+	}
 
 	tenantDB, err := connectToTenantDB(v.tenantID)
 	if err != nil {
@@ -2325,22 +2339,20 @@ func initializeHandler(c echo.Context) error {
 	playerCache = cache.New[string, PlayerRow](10000)
 
 	playerScoreCache = cache.New[string, []PlayerScoreRowPlayer](10000)
-	/*
-		{
-			req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodPost, "http://192.168.0.12:3000/initialize2", nil)
-			re, err := http.DefaultClient.Do(req)
-			log.Print(err)
-			io.ReadAll(re.Body)
-			re.Body.Close()
-		}
-		{
-			req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodPost, "http://192.168.0.13:3000/initialize2", nil)
-			re, err := http.DefaultClient.Do(req)
-			log.Print(err)
-			io.ReadAll(re.Body)
-			re.Body.Close()
-		}
-	*/
+	{
+		req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodPost, "http://192.168.0.11:3000/initialize2", nil)
+		re, err := http.DefaultClient.Do(req)
+		log.Print(err)
+		io.ReadAll(re.Body)
+		re.Body.Close()
+	}
+	{
+		req, _ := http.NewRequestWithContext(c.Request().Context(), http.MethodPost, "http://192.168.0.12:3000/initialize2", nil)
+		re, err := http.DefaultClient.Do(req)
+		log.Print(err)
+		io.ReadAll(re.Body)
+		re.Body.Close()
+	}
 	ctx := c.Request().Context()
 	ts := []TenantRow{}
 	if err := adminDB.SelectContext(ctx, &ts, "SELECT * FROM tenant ORDER BY id DESC"); err != nil {
@@ -2455,6 +2467,23 @@ var tr = &http.Transport{
 	MaxIdleConns:          1000,
 	MaxIdleConnsPerHost:   1000,
 	IdleConnTimeout:       120 * time.Second,
+}
+
+func Proxy(c echo.Context, v *Viewer) bool {
+	// 最初に 192.168.0.13 にリクエストする
+	// それ以外はプロキシ先なのでそのまま処理する
+	if ownHost != "192.168.0.13" {
+		return false
+	}
+	c.Response().Header().Set("Viewer", v.String())
+
+	switch v.tenantID % 5 {
+	case 1:
+		c.Response().Header().Set("X-Accel-Redirect", "/worker1"+c.Request().RequestURI)
+	case 2, 3, 4, 0:
+		c.Response().Header().Set("X-Accel-Redirect", "/worker2"+c.Request().RequestURI)
+	}
+	return true
 }
 
 /*
