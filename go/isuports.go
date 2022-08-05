@@ -207,30 +207,38 @@ func Run() {
 	e.Use(middleware.Recover())
 	e.Use(SetCacheControlPrivate)
 
+	prefix := ""
+	if ownHost == "192.168.0.11" {
+		prefix = "worker1"
+	}
+	if ownHost == "192.168.0.12" {
+		prefix = "worker2"
+	}
+
 	// SaaS管理者向けAPI
 	e.POST("/api/admin/tenants/add", tenantsAddHandler)
 	e.POST("/api/admin/tenants/add2/:tenant_id", tenantsAddHandler2)
 	e.GET("/api/admin/tenants/billing", tenantsBillingHandler)
 
 	// テナント管理者向けAPI - 参加者追加、一覧、失格
-	e.GET("/api/organizer/players", playersListHandler)
-	e.POST("/api/organizer/players/add", playersAddHandler)
-	e.POST("/api/organizer/player/:player_id/disqualified", playerDisqualifiedHandler)
+	e.GET(prefix+"/api/organizer/players", playersListHandler)
+	e.POST(prefix+"/api/organizer/players/add", playersAddHandler)
+	e.POST(prefix+"/api/organizer/player/:player_id/disqualified", playerDisqualifiedHandler)
 
 	// テナント管理者向けAPI - 大会管理
-	e.POST("/api/organizer/competitions/add", competitionsAddHandler)
-	e.POST("/api/organizer/competition/:competition_id/finish", competitionFinishHandler)
-	e.POST("/api/organizer/competition/:competition_id/score", competitionScoreHandler)
-	e.GET("/api/organizer/billing", billingHandler)
-	e.GET("/api/organizer/competitions", organizerCompetitionsHandler)
+	e.POST(prefix+"/api/organizer/competitions/add", competitionsAddHandler)
+	e.POST(prefix+"/api/organizer/competition/:competition_id/finish", competitionFinishHandler)
+	e.POST(prefix+"/api/organizer/competition/:competition_id/score", competitionScoreHandler)
+	e.GET(prefix+"/api/organizer/billing", billingHandler)
+	e.GET(prefix+"/api/organizer/competitions", organizerCompetitionsHandler)
 
 	// 参加者向けAPI
-	e.GET("/api/player/player/:player_id", playerHandler)
-	e.GET("/api/player/competition/:competition_id/ranking", competitionRankingHandler)
-	e.GET("/api/player/competitions", playerCompetitionsHandler)
+	e.GET(prefix+"/api/player/player/:player_id", playerHandler)
+	e.GET(prefix+"/api/player/competition/:competition_id/ranking", competitionRankingHandler)
+	e.GET(prefix+"/api/player/competitions", playerCompetitionsHandler)
 
 	// 全ロール及び未認証でも使えるhandler
-	e.GET("/api/me", meHandler)
+	e.GET(prefix+"/api/me", meHandler)
 
 	// ベンチマーカー向けAPI
 	e.POST("/initialize", initializeHandler)
