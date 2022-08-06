@@ -2484,7 +2484,7 @@ func Proxy(c echo.Context, v *Viewer) bool {
 		return false
 	}
 	c.Response().Header().Set("Viewer", v.String())
-
+	c.Response().Header().Set("X-Method", c.Request().Method)
 	switch v.tenantID % 5 {
 	case 1:
 		c.Response().Header().Set("X-Accel-Redirect", "/worker1"+c.Request().RequestURI)
